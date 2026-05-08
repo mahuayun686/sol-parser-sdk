@@ -253,6 +253,37 @@ fn parse_pumpfun_instruction(
             created_mints,
             mayhem_mints,
         ),
+        d if d == discriminators::BUY_V2 => parse_buy_v2_instruction(
+            ix_data,
+            accounts,
+            ix_accounts,
+            signature,
+            slot,
+            tx_index,
+            recv_us,
+            created_mints,
+            mayhem_mints,
+        ),
+        d if d == discriminators::BUY_EXACT_QUOTE_IN_V2 => parse_buy_exact_quote_in_v2_instruction(
+            ix_data,
+            accounts,
+            ix_accounts,
+            signature,
+            slot,
+            tx_index,
+            recv_us,
+            created_mints,
+            mayhem_mints,
+        ),
+        d if d == discriminators::SELL_V2 => parse_sell_v2_instruction(
+            ix_data,
+            accounts,
+            ix_accounts,
+            signature,
+            slot,
+            tx_index,
+            recv_us,
+        ),
         d if d == discriminators::MIGRATE_BONDING_CURVE_CREATOR => {
             parse_migrate_bonding_curve_creator_shred(
                 accounts,
@@ -688,6 +719,232 @@ fn parse_buy_exact_sol_in_instruction(
         associated_bonding_curve: get_account(4).unwrap_or_default(),
         token_program: token_program_or_default(get_account(8).unwrap_or_default()),
         creator_vault: get_account(9).unwrap_or_default(),
+        account: None,
+    }))
+}
+
+/// `buy_v2`：27 个固定账户（IDL `buy_v2`）；mint=#1 bonding_curve=#10 user=#13 fee=#6 base_token_program=#3。
+#[inline]
+fn parse_buy_v2_instruction(
+    data: &[u8],
+    accounts: &[Pubkey],
+    ix_accounts: &[u8],
+    signature: Signature,
+    slot: u64,
+    tx_index: u64,
+    recv_us: i64,
+    created_mints: &HashSet<Pubkey>,
+    mayhem_mints: &HashSet<Pubkey>,
+) -> Option<DexEvent> {
+    const MIN_ACC: usize = 27;
+    if ix_accounts.len() < MIN_ACC {
+        return None;
+    }
+
+    let get_account =
+        |idx: usize| -> Option<Pubkey> { ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied() };
+
+    let (token_amount, sol_amount) = if data.len() >= 16 {
+        (read_u64_le(data, 0).unwrap_or(0), read_u64_le(data, 8).unwrap_or(0))
+    } else {
+        (0, 0)
+    };
+
+    let mint = get_account(1)?;
+    let is_created_buy = created_mints.contains(&mint);
+    let is_mayhem_mode = mayhem_mints.contains(&mint);
+
+    let metadata = EventMetadata {
+        signature,
+        slot,
+        tx_index,
+        block_time_us: 0,
+        grpc_recv_us: recv_us,
+        recent_blockhash: None,
+    };
+
+    Some(DexEvent::PumpFunTrade(PumpFunTradeEvent {
+        metadata,
+        mint,
+        bonding_curve: get_account(10).unwrap_or_default(),
+        user: get_account(13).unwrap_or_default(),
+        sol_amount,
+        token_amount,
+        fee_recipient: get_account(6).unwrap_or_default(),
+        is_buy: true,
+        is_created_buy,
+        timestamp: 0,
+        virtual_sol_reserves: 0,
+        virtual_token_reserves: 0,
+        real_sol_reserves: 0,
+        real_token_reserves: 0,
+        fee_basis_points: 0,
+        fee: 0,
+        creator: Pubkey::default(),
+        creator_fee_basis_points: 0,
+        creator_fee: 0,
+        track_volume: false,
+        total_unclaimed_tokens: 0,
+        total_claimed_tokens: 0,
+        current_sol_volume: 0,
+        last_update_timestamp: 0,
+        ix_name: "buy_v2".to_string(),
+        mayhem_mode: is_mayhem_mode,
+        cashback_fee_basis_points: 0,
+        cashback: 0,
+        is_cashback_coin: false,
+        associated_bonding_curve: get_account(11).unwrap_or_default(),
+        token_program: token_program_or_default(get_account(3).unwrap_or_default()),
+        creator_vault: get_account(16).unwrap_or_default(),
+        account: None,
+    }))
+}
+
+#[inline]
+fn parse_buy_exact_quote_in_v2_instruction(
+    data: &[u8],
+    accounts: &[Pubkey],
+    ix_accounts: &[u8],
+    signature: Signature,
+    slot: u64,
+    tx_index: u64,
+    recv_us: i64,
+    created_mints: &HashSet<Pubkey>,
+    mayhem_mints: &HashSet<Pubkey>,
+) -> Option<DexEvent> {
+    const MIN_ACC: usize = 27;
+    if ix_accounts.len() < MIN_ACC {
+        return None;
+    }
+
+    let get_account =
+        |idx: usize| -> Option<Pubkey> { ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied() };
+
+    let (sol_amount, token_amount) = if data.len() >= 16 {
+        (read_u64_le(data, 0).unwrap_or(0), read_u64_le(data, 8).unwrap_or(0))
+    } else {
+        (0, 0)
+    };
+
+    let mint = get_account(1)?;
+    let is_created_buy = created_mints.contains(&mint);
+    let is_mayhem_mode = mayhem_mints.contains(&mint);
+
+    let metadata = EventMetadata {
+        signature,
+        slot,
+        tx_index,
+        block_time_us: 0,
+        grpc_recv_us: recv_us,
+        recent_blockhash: None,
+    };
+
+    Some(DexEvent::PumpFunTrade(PumpFunTradeEvent {
+        metadata,
+        mint,
+        bonding_curve: get_account(10).unwrap_or_default(),
+        user: get_account(13).unwrap_or_default(),
+        sol_amount,
+        token_amount,
+        fee_recipient: get_account(6).unwrap_or_default(),
+        is_buy: true,
+        is_created_buy,
+        timestamp: 0,
+        virtual_sol_reserves: 0,
+        virtual_token_reserves: 0,
+        real_sol_reserves: 0,
+        real_token_reserves: 0,
+        fee_basis_points: 0,
+        fee: 0,
+        creator: Pubkey::default(),
+        creator_fee_basis_points: 0,
+        creator_fee: 0,
+        track_volume: false,
+        total_unclaimed_tokens: 0,
+        total_claimed_tokens: 0,
+        current_sol_volume: 0,
+        last_update_timestamp: 0,
+        ix_name: "buy_exact_quote_in_v2".to_string(),
+        mayhem_mode: is_mayhem_mode,
+        cashback_fee_basis_points: 0,
+        cashback: 0,
+        is_cashback_coin: false,
+        associated_bonding_curve: get_account(11).unwrap_or_default(),
+        token_program: token_program_or_default(get_account(3).unwrap_or_default()),
+        creator_vault: get_account(16).unwrap_or_default(),
+        account: None,
+    }))
+}
+
+/// `sell_v2`：26 个固定账户（IDL `sell_v2`）。
+#[inline]
+fn parse_sell_v2_instruction(
+    data: &[u8],
+    accounts: &[Pubkey],
+    ix_accounts: &[u8],
+    signature: Signature,
+    slot: u64,
+    tx_index: u64,
+    recv_us: i64,
+) -> Option<DexEvent> {
+    const MIN_ACC: usize = 26;
+    if ix_accounts.len() < MIN_ACC {
+        return None;
+    }
+
+    let get_account =
+        |idx: usize| -> Option<Pubkey> { ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied() };
+
+    let (token_amount, sol_amount) = if data.len() >= 16 {
+        (read_u64_le(data, 0).unwrap_or(0), read_u64_le(data, 8).unwrap_or(0))
+    } else {
+        (0, 0)
+    };
+
+    let mint = get_account(1)?;
+
+    let metadata = EventMetadata {
+        signature,
+        slot,
+        tx_index,
+        block_time_us: 0,
+        grpc_recv_us: recv_us,
+        recent_blockhash: None,
+    };
+
+    Some(DexEvent::PumpFunTrade(PumpFunTradeEvent {
+        metadata,
+        mint,
+        bonding_curve: get_account(10).unwrap_or_default(),
+        user: get_account(13).unwrap_or_default(),
+        sol_amount,
+        token_amount,
+        fee_recipient: get_account(6).unwrap_or_default(),
+        is_buy: false,
+        is_created_buy: false,
+        timestamp: 0,
+        virtual_sol_reserves: 0,
+        virtual_token_reserves: 0,
+        real_sol_reserves: 0,
+        real_token_reserves: 0,
+        fee_basis_points: 0,
+        fee: 0,
+        creator: Pubkey::default(),
+        creator_fee_basis_points: 0,
+        creator_fee: 0,
+        track_volume: false,
+        total_unclaimed_tokens: 0,
+        total_claimed_tokens: 0,
+        current_sol_volume: 0,
+        last_update_timestamp: 0,
+        ix_name: "sell_v2".to_string(),
+        mayhem_mode: false,
+        cashback_fee_basis_points: 0,
+        cashback: 0,
+        is_cashback_coin: false,
+        associated_bonding_curve: get_account(11).unwrap_or_default(),
+        token_program: token_program_or_default(get_account(3).unwrap_or_default()),
+        creator_vault: get_account(16).unwrap_or_default(),
         account: None,
     }))
 }
