@@ -323,6 +323,7 @@ pub enum EventType {
     // Account events
     TokenAccount,
     NonceAccount,
+    AccountPumpFunGlobal,
 
     AccountPumpSwapGlobalConfig,
     AccountPumpSwapPool,
@@ -396,6 +397,7 @@ impl EventTypeFilter {
                         | EventType::PumpFeesUpdateFeeShares
                         | EventType::PumpFeesUpsertFeeTiers
                         | EventType::PumpFunMigrateBondingCurveCreator
+                        | EventType::AccountPumpFunGlobal
                 )
             });
         }
@@ -422,6 +424,7 @@ impl EventTypeFilter {
                         | EventType::PumpFeesUpdateFeeShares
                         | EventType::PumpFeesUpsertFeeTiers
                         | EventType::PumpFunMigrateBondingCurveCreator
+                        | EventType::AccountPumpFunGlobal
                 )
             });
         }

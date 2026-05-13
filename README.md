@@ -129,9 +129,9 @@ cargo run --example pumpswap_low_latency --release
 cargo run --example pumpswap_ordered --release
 
 # Expected output:
-# gRPC接收时间: 1234567890 μs
-# 事件接收时间: 1234567900 μs
-# 延迟时间: 10 μs  <-- Ultra-low latency!
+# gRPC receive time: 1234567890 μs
+# Event receive time: 1234567900 μs
+# Latency: 10 μs  <-- Ultra-low latency!
 ```
 
 ### Examples
