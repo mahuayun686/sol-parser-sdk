@@ -1,7 +1,7 @@
+use super::types::*;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use solana_sdk::signature::Signature;
-use super::types::*;
 
 // ====================== 统一的 DEX 事件枚举 ======================
 
@@ -29,11 +29,11 @@ pub enum DexEvent {
     /// Pump.fun：曲线 creator 迁移（`migrateBondingCurveCreatorEvent`）
     PumpFunMigrateBondingCurveCreator(PumpFunMigrateBondingCurveCreatorEvent),
     PumpFunGlobalAccount(PumpFunGlobalAccountEvent), // - 已对接
-    PumpSwapTrade(PumpSwapTradeEvent), // - 已对接 (buy/sell/buy_exact_sol_in)
-    PumpSwapBuy(PumpSwapBuyEvent),     // - 已对接 (legacy)
-    PumpSwapSell(PumpSwapSellEvent),   // - 已对接 (legacy)
-    PumpSwapCreatePool(PumpSwapCreatePoolEvent), // - 已对接
-    PumpSwapLiquidityAdded(PumpSwapLiquidityAdded), // - 已对接
+    PumpSwapTrade(PumpSwapTradeEvent),               // - 已对接 (buy/sell/buy_exact_sol_in)
+    PumpSwapBuy(PumpSwapBuyEvent),                   // - 已对接 (legacy)
+    PumpSwapSell(PumpSwapSellEvent),                 // - 已对接 (legacy)
+    PumpSwapCreatePool(PumpSwapCreatePoolEvent),     // - 已对接
+    PumpSwapLiquidityAdded(PumpSwapLiquidityAdded),  // - 已对接
     PumpSwapLiquidityRemoved(PumpSwapLiquidityRemoved), // - 已对接
 
     // Meteora DAMM V2 事件

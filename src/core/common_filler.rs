@@ -10,9 +10,8 @@ fn set_pumpswap_is_pump_pool_from_fees_ix(
     program_invokes: &HashMap<Pubkey, Vec<(i32, i32)>>,
     is_pump_pool: &mut bool,
 ) {
-    if let Some(invoke) = program_invokes
-        .get(&crate::grpc::program_ids::PUMPSWAP_FEES_PROGRAM)
-        .and_then(|v| v.last())
+    if let Some(invoke) =
+        program_invokes.get(&crate::grpc::program_ids::PUMPSWAP_FEES_PROGRAM).and_then(|v| v.last())
     {
         if let Some(data) = get_instruction_data(meta, transaction, invoke) {
             *is_pump_pool = read_bool(data, 9).unwrap_or_default();
@@ -29,10 +28,20 @@ pub fn fill_data(
 ) {
     match event {
         DexEvent::PumpSwapBuy(ref mut e) => {
-            set_pumpswap_is_pump_pool_from_fees_ix(meta, transaction, program_invokes, &mut e.is_pump_pool);
+            set_pumpswap_is_pump_pool_from_fees_ix(
+                meta,
+                transaction,
+                program_invokes,
+                &mut e.is_pump_pool,
+            );
         }
         DexEvent::PumpSwapSell(ref mut e) => {
-            set_pumpswap_is_pump_pool_from_fees_ix(meta, transaction, program_invokes, &mut e.is_pump_pool);
+            set_pumpswap_is_pump_pool_from_fees_ix(
+                meta,
+                transaction,
+                program_invokes,
+                &mut e.is_pump_pool,
+            );
         }
         _ => {}
     }

@@ -15,18 +15,18 @@ use crate::instr::read_pubkey_fast;
 use crate::logs::timestamp_to_microseconds;
 use crate::DexEvent;
 use crossbeam_queue::ArrayQueue;
-use solana_sdk::pubkey::Pubkey;
-use std::str::FromStr;
 use futures::{SinkExt, StreamExt};
 use log::error;
 use memchr::memmem;
 use once_cell::sync::Lazy;
+use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 use tokio::time::{Duration, Instant};
 // Note: ClientTlsConfig moved to yellowstone_grpc_client in newer versions
-use yellowstone_grpc_client::{GeyserGrpcClient, ClientTlsConfig};
+use yellowstone_grpc_client::{ClientTlsConfig, GeyserGrpcClient};
 use yellowstone_grpc_proto::prelude::*;
 
 static PROGRAM_DATA_FINDER: Lazy<memmem::Finder> =
@@ -558,7 +558,12 @@ fn parse_logs(
             has_create,
             recent_blockhash.as_deref(),
         ) {
-            crate::core::account_dispatcher::fill_accounts_with_owned_keys(&mut e, meta, transaction, &invokes);
+            crate::core::account_dispatcher::fill_accounts_with_owned_keys(
+                &mut e,
+                meta,
+                transaction,
+                &invokes,
+            );
             crate::core::common_filler::fill_data(&mut e, meta, transaction, &invokes);
             result.push(e);
         }

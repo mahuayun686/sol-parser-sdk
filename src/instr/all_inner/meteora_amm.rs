@@ -2,7 +2,6 @@ use crate::core::events::*;
 use crate::instr::inner_common::*;
 use solana_sdk::pubkey::Pubkey;
 
-
 pub mod discriminators {
     pub const SWAP: [u8; 16] =
         [81, 108, 227, 190, 205, 208, 10, 196, 155, 167, 108, 32, 122, 76, 173, 64];

@@ -3,7 +3,6 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 
-
 use crate::core::events::*;
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
 
@@ -12,7 +11,6 @@ use once_cell::sync::Lazy;
 
 #[cfg(feature = "perf-stats")]
 use std::sync::atomic::{AtomicUsize, Ordering};
-
 
 #[cfg(feature = "perf-stats")]
 pub static PARSE_COUNT: AtomicUsize = AtomicUsize::new(0);
@@ -25,8 +23,9 @@ pub const CREATE_EVENT: u64 = u64::from_le_bytes([27, 114, 169, 77, 222, 235, 99
 pub const TRADE_EVENT: u64 = u64::from_le_bytes([189, 219, 127, 211, 78, 230, 97, 238]);
 pub const MIGRATE_EVENT: u64 = u64::from_le_bytes([189, 233, 93, 185, 92, 148, 234, 148]);
 /// `createFeeSharingConfigEvent`（pump-fees IDL）
-pub const CREATE_FEE_SHARING_CONFIG_EVENT: u64 =
-    crate::logs::pump_fees::discriminant_u64(&crate::logs::pump_fees::CREATE_FEE_SHARING_CONFIG_EVENT_DISC);
+pub const CREATE_FEE_SHARING_CONFIG_EVENT: u64 = crate::logs::pump_fees::discriminant_u64(
+    &crate::logs::pump_fees::CREATE_FEE_SHARING_CONFIG_EVENT_DISC,
+);
 /// `migrateBondingCurveCreatorEvent`（pump.fun IDL）
 pub const MIGRATE_BONDING_CURVE_CREATOR_EVENT: u64 =
     u64::from_le_bytes([155, 167, 104, 220, 213, 108, 243, 3]);
@@ -96,7 +95,10 @@ static BASE64_FINDER: Lazy<memmem::Finder> = Lazy::new(|| memmem::Finder::new(b"
 const PROGRAM_DATA_TAG_LEN: usize = 14;
 
 #[inline(always)]
-pub fn extract_program_data_zero_copy<'a>(log: &'a str, buf: &'a mut [u8; 2048]) -> Option<&'a [u8]> {
+pub fn extract_program_data_zero_copy<'a>(
+    log: &'a str,
+    buf: &'a mut [u8; 2048],
+) -> Option<&'a [u8]> {
     let log_bytes = log.as_bytes();
     let pos = BASE64_FINDER.find(log_bytes)?;
 
@@ -199,16 +201,14 @@ pub fn parse_log(
             block_time_us,
             grpc_recv_us,
         ),
-        MIGRATE_BONDING_CURVE_CREATOR_EVENT => {
-            parse_migrate_bonding_curve_creator_event_optimized(
-                data,
-                signature,
-                slot,
-                tx_index,
-                block_time_us,
-                grpc_recv_us,
-            )
-        },
+        MIGRATE_BONDING_CURVE_CREATOR_EVENT => parse_migrate_bonding_curve_creator_event_optimized(
+            data,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+            grpc_recv_us,
+        ),
         _ => None,
     };
 
@@ -988,17 +988,15 @@ pub fn parse_migrate_bonding_curve_creator_from_data(
         offset += 32;
         let new_creator = read_pubkey_unchecked(data, offset);
 
-        Some(DexEvent::PumpFunMigrateBondingCurveCreator(
-            PumpFunMigrateBondingCurveCreatorEvent {
-                metadata,
-                timestamp,
-                mint,
-                bonding_curve,
-                sharing_config,
-                old_creator,
-                new_creator,
-            },
-        ))
+        Some(DexEvent::PumpFunMigrateBondingCurveCreator(PumpFunMigrateBondingCurveCreatorEvent {
+            metadata,
+            timestamp,
+            mint,
+            bonding_curve,
+            sharing_config,
+            old_creator,
+            new_creator,
+        }))
     }
 }
 
@@ -1016,8 +1014,7 @@ fn read_i64_at(data: &[u8], o: &mut usize) -> Option<i64> {
     if data.len() < *o + 8 {
         return None;
     }
-    let v =
-        i64::from_le_bytes(data[*o..*o + 8].try_into().ok()?);
+    let v = i64::from_le_bytes(data[*o..*o + 8].try_into().ok()?);
     *o += 8;
     Some(v)
 }
@@ -1027,8 +1024,7 @@ fn read_u16_at(data: &[u8], o: &mut usize) -> Option<u16> {
     if data.len() < *o + 2 {
         return None;
     }
-    let v =
-        u16::from_le_bytes(data[*o..*o + 2].try_into().ok()?);
+    let v = u16::from_le_bytes(data[*o..*o + 2].try_into().ok()?);
     *o += 2;
     Some(v)
 }
@@ -1038,8 +1034,7 @@ fn read_u32_at(data: &[u8], o: &mut usize) -> Option<u32> {
     if data.len() < *o + 4 {
         return None;
     }
-    let v =
-        u32::from_le_bytes(data[*o..*o + 4].try_into().ok()?);
+    let v = u32::from_le_bytes(data[*o..*o + 4].try_into().ok()?);
     *o += 4;
     Some(v)
 }
@@ -1138,5 +1133,4 @@ mod tests {
             _ => panic!("wrong variant"),
         }
     }
-
 }

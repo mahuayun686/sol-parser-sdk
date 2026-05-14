@@ -485,7 +485,7 @@ pub fn parse_log_optimized(
         discriminators::PUMPFUN_CREATE => crate::logs::pump::parse_create_from_data(data, metadata),
         discriminators::PUMPFUN_MIGRATE => {
             crate::logs::pump::parse_migrate_from_data(data, metadata)
-        },
+        }
         discriminators::PUMP_FEES_CREATE_FEE_SHARING_CONFIG => {
             crate::logs::pump_fees::parse_create_fee_sharing_config_from_data(data, metadata)
         }
@@ -512,11 +512,10 @@ pub fn parse_log_optimized(
         }
         discriminators::PUMP_FEES_UPSERT_FEE_TIERS => {
             crate::logs::pump_fees::parse_upsert_fee_tiers_from_data(data, metadata)
-        },
-        discriminators::PUMPFUN_MIGRATE_BONDING_CURVE_CREATOR => crate::logs::pump::parse_migrate_bonding_curve_creator_from_data(
-            data,
-            metadata,
-        ),
+        }
+        discriminators::PUMPFUN_MIGRATE_BONDING_CURVE_CREATOR => {
+            crate::logs::pump::parse_migrate_bonding_curve_creator_from_data(data, metadata)
+        }
         discriminators::PUMPSWAP_CREATE_POOL => {
             crate::logs::pump_amm::parse_create_pool_from_data(data, metadata)
         }
@@ -672,7 +671,7 @@ fn discriminator_to_event_type(discriminator: u64) -> Option<EventType> {
         discriminators::PUMP_FEES_UPSERT_FEE_TIERS => Some(EventType::PumpFeesUpsertFeeTiers),
         discriminators::PUMPFUN_MIGRATE_BONDING_CURVE_CREATOR => {
             Some(EventType::PumpFunMigrateBondingCurveCreator)
-        },
+        }
         discriminators::PUMPSWAP_BUY => Some(EventType::PumpSwapBuy),
         discriminators::PUMPSWAP_SELL => Some(EventType::PumpSwapSell),
         discriminators::PUMPSWAP_CREATE_POOL => Some(EventType::PumpSwapCreatePool),

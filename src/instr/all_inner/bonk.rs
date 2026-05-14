@@ -64,8 +64,7 @@ fn parse_trade_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
 
     let mut event = borsh::from_slice::<BonkTradeEvent>(&data[..TRADE_EVENT_SIZE]).ok()?;
     event.metadata = metadata;
-    event.trade_direction =
-        if event.is_buy { TradeDirection::Buy } else { TradeDirection::Sell };
+    event.trade_direction = if event.is_buy { TradeDirection::Buy } else { TradeDirection::Sell };
     event.exact_in = true;
     Some(DexEvent::BonkTrade(event))
 }

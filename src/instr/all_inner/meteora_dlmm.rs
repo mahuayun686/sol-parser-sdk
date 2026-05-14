@@ -208,10 +208,9 @@ fn parse_remove_liquidity_borsh(data: &[u8], metadata: EventMetadata) -> Option<
         return None;
     }
 
-    let mut event = borsh::from_slice::<MeteoraDlmmRemoveLiquidityEvent>(
-        &data[..REMOVE_LIQUIDITY_EVENT_SIZE],
-    )
-    .ok()?;
+    let mut event =
+        borsh::from_slice::<MeteoraDlmmRemoveLiquidityEvent>(&data[..REMOVE_LIQUIDITY_EVENT_SIZE])
+            .ok()?;
     event.metadata = metadata;
     Some(DexEvent::MeteoraDlmmRemoveLiquidity(event))
 }
@@ -269,10 +268,9 @@ fn parse_initialize_pool_borsh(data: &[u8], metadata: EventMetadata) -> Option<D
         return None;
     }
 
-    let mut event = borsh::from_slice::<MeteoraDlmmInitializePoolEvent>(
-        &data[..INITIALIZE_POOL_EVENT_SIZE],
-    )
-    .ok()?;
+    let mut event =
+        borsh::from_slice::<MeteoraDlmmInitializePoolEvent>(&data[..INITIALIZE_POOL_EVENT_SIZE])
+            .ok()?;
     event.metadata = metadata;
     Some(DexEvent::MeteoraDlmmInitializePool(event))
 }
@@ -338,10 +336,7 @@ fn parse_initialize_bin_array_borsh(data: &[u8], metadata: EventMetadata) -> Opt
 /// 零拷贝解析器 - Initialize Bin Array
 #[cfg(feature = "parse-zero-copy")]
 #[inline(always)]
-fn parse_initialize_bin_array_zero_copy(
-    data: &[u8],
-    metadata: EventMetadata,
-) -> Option<DexEvent> {
+fn parse_initialize_bin_array_zero_copy(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     unsafe {
         if !check_length(data, 32 + 32 + 8) {
             return None;
@@ -386,10 +381,9 @@ fn parse_create_position_borsh(data: &[u8], metadata: EventMetadata) -> Option<D
         return None;
     }
 
-    let mut event = borsh::from_slice::<MeteoraDlmmCreatePositionEvent>(
-        &data[..CREATE_POSITION_EVENT_SIZE],
-    )
-    .ok()?;
+    let mut event =
+        borsh::from_slice::<MeteoraDlmmCreatePositionEvent>(&data[..CREATE_POSITION_EVENT_SIZE])
+            .ok()?;
     event.metadata = metadata;
     Some(DexEvent::MeteoraDlmmCreatePosition(event))
 }

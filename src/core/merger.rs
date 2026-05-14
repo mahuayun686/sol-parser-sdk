@@ -320,7 +320,10 @@ fn merge_pumpfun_trade_log_preferred(log: &mut PumpFunTradeEvent, ix: PumpFunTra
 }
 
 #[inline]
-fn merge_pumpfun_create_log_preferred(log: &mut PumpFunCreateTokenEvent, ix: PumpFunCreateTokenEvent) {
+fn merge_pumpfun_create_log_preferred(
+    log: &mut PumpFunCreateTokenEvent,
+    ix: PumpFunCreateTokenEvent,
+) {
     fill_str_if_empty(&mut log.name, &ix.name);
     fill_str_if_empty(&mut log.symbol, &ix.symbol);
     fill_str_if_empty(&mut log.uri, &ix.uri);
@@ -376,20 +379,14 @@ fn merge_pumpswap_buy_log_preferred(log: &mut PumpSwapBuyEvent, ix: PumpSwapBuyE
     fill_pk(&mut log.user_base_token_account, ix.user_base_token_account);
     fill_pk(&mut log.user_quote_token_account, ix.user_quote_token_account);
     fill_pk(&mut log.protocol_fee_recipient, ix.protocol_fee_recipient);
-    fill_pk(
-        &mut log.protocol_fee_recipient_token_account,
-        ix.protocol_fee_recipient_token_account,
-    );
+    fill_pk(&mut log.protocol_fee_recipient_token_account, ix.protocol_fee_recipient_token_account);
     fill_pk(&mut log.coin_creator, ix.coin_creator);
     fill_pk(&mut log.base_mint, ix.base_mint);
     fill_pk(&mut log.quote_mint, ix.quote_mint);
     fill_pk(&mut log.pool_base_token_account, ix.pool_base_token_account);
     fill_pk(&mut log.pool_quote_token_account, ix.pool_quote_token_account);
     fill_pk(&mut log.coin_creator_vault_ata, ix.coin_creator_vault_ata);
-    fill_pk(
-        &mut log.coin_creator_vault_authority,
-        ix.coin_creator_vault_authority,
-    );
+    fill_pk(&mut log.coin_creator_vault_authority, ix.coin_creator_vault_authority);
     fill_pk(&mut log.base_token_program, ix.base_token_program);
     fill_pk(&mut log.quote_token_program, ix.quote_token_program);
     if log.ix_name.is_empty() && !ix.ix_name.is_empty() {
@@ -402,20 +399,14 @@ fn merge_pumpswap_sell_log_preferred(log: &mut PumpSwapSellEvent, ix: PumpSwapSe
     fill_pk(&mut log.user_base_token_account, ix.user_base_token_account);
     fill_pk(&mut log.user_quote_token_account, ix.user_quote_token_account);
     fill_pk(&mut log.protocol_fee_recipient, ix.protocol_fee_recipient);
-    fill_pk(
-        &mut log.protocol_fee_recipient_token_account,
-        ix.protocol_fee_recipient_token_account,
-    );
+    fill_pk(&mut log.protocol_fee_recipient_token_account, ix.protocol_fee_recipient_token_account);
     fill_pk(&mut log.coin_creator, ix.coin_creator);
     fill_pk(&mut log.base_mint, ix.base_mint);
     fill_pk(&mut log.quote_mint, ix.quote_mint);
     fill_pk(&mut log.pool_base_token_account, ix.pool_base_token_account);
     fill_pk(&mut log.pool_quote_token_account, ix.pool_quote_token_account);
     fill_pk(&mut log.coin_creator_vault_ata, ix.coin_creator_vault_ata);
-    fill_pk(
-        &mut log.coin_creator_vault_authority,
-        ix.coin_creator_vault_authority,
-    );
+    fill_pk(&mut log.coin_creator_vault_authority, ix.coin_creator_vault_authority);
     fill_pk(&mut log.base_token_program, ix.base_token_program);
     fill_pk(&mut log.quote_token_program, ix.quote_token_program);
 }
@@ -428,7 +419,10 @@ fn merge_raydium_clmm_swap_log_preferred(log: &mut RaydiumClmmSwapEvent, ix: Ray
 }
 
 #[inline]
-fn merge_raydium_amm_v4_swap_log_preferred(log: &mut RaydiumAmmV4SwapEvent, ix: RaydiumAmmV4SwapEvent) {
+fn merge_raydium_amm_v4_swap_log_preferred(
+    log: &mut RaydiumAmmV4SwapEvent,
+    ix: RaydiumAmmV4SwapEvent,
+) {
     fill_pk(&mut log.token_program, ix.token_program);
     fill_pk(&mut log.amm_authority, ix.amm_authority);
     fill_pk(&mut log.amm_open_orders, ix.amm_open_orders);
@@ -444,20 +438,11 @@ fn merge_raydium_amm_v4_swap_log_preferred(log: &mut RaydiumAmmV4SwapEvent, ix: 
     fill_pk(&mut log.serum_bids, ix.serum_bids);
     fill_pk(&mut log.serum_asks, ix.serum_asks);
     fill_pk(&mut log.serum_event_queue, ix.serum_event_queue);
-    fill_pk(
-        &mut log.serum_coin_vault_account,
-        ix.serum_coin_vault_account,
-    );
+    fill_pk(&mut log.serum_coin_vault_account, ix.serum_coin_vault_account);
     fill_pk(&mut log.serum_pc_vault_account, ix.serum_pc_vault_account);
     fill_pk(&mut log.serum_vault_signer, ix.serum_vault_signer);
-    fill_pk(
-        &mut log.user_source_token_account,
-        ix.user_source_token_account,
-    );
-    fill_pk(
-        &mut log.user_destination_token_account,
-        ix.user_destination_token_account,
-    );
+    fill_pk(&mut log.user_source_token_account, ix.user_source_token_account);
+    fill_pk(&mut log.user_destination_token_account, ix.user_destination_token_account);
 }
 
 #[inline]
@@ -513,7 +498,11 @@ fn merge_bonk_migrate_amm_log_preferred(log: &mut BonkMigrateAmmEvent, ix: BonkM
 fn merge_bonk_trade_log_preferred(_log: &mut BonkTradeEvent, _ix: BonkTradeEvent) {}
 
 #[inline]
-fn merge_meteora_dlmm_swap_log_preferred(_log: &mut MeteoraDlmmSwapEvent, _ix: MeteoraDlmmSwapEvent) {}
+fn merge_meteora_dlmm_swap_log_preferred(
+    _log: &mut MeteoraDlmmSwapEvent,
+    _ix: MeteoraDlmmSwapEvent,
+) {
+}
 
 /// 将 **instruction 路径**解析结果合并进 **log 路径**事件：`log` 保留链上日志权威数值，
 /// `ix` 仅填补 `log` 中为默认值的账户等字段。**不替换** `log` 外层枚举变体。
@@ -728,11 +717,8 @@ mod tests {
             recent_blockhash: None,
         };
         let fr = Pubkey::new_unique();
-        let log_t = PumpFunTradeEvent {
-            metadata: metadata.clone(),
-            sol_amount: 50,
-            ..Default::default()
-        };
+        let log_t =
+            PumpFunTradeEvent { metadata: metadata.clone(), sol_amount: 50, ..Default::default() };
         let mut ix_t = log_t.clone();
         ix_t.fee_recipient = fr;
         ix_t.sol_amount = 777;

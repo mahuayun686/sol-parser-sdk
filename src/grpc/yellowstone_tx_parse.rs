@@ -106,16 +106,8 @@ fn parse_transaction_core_sequential(
         grpc_us,
         filter,
     );
-    let instr_events = parse_instructions(
-        meta,
-        &info.transaction,
-        sig,
-        slot,
-        idx,
-        block_us,
-        grpc_us,
-        filter,
-    );
+    let instr_events =
+        parse_instructions(meta, &info.transaction, sig, slot, idx, block_us, grpc_us, filter);
 
     crate::grpc::log_instr_dedup::dedupe_log_instruction_events(log_events, instr_events)
 }
@@ -181,7 +173,12 @@ fn parse_logs(
             has_create,
             recent_blockhash.as_deref(),
         ) {
-            crate::core::account_dispatcher::fill_accounts_with_owned_keys(&mut e, meta, transaction, &invokes);
+            crate::core::account_dispatcher::fill_accounts_with_owned_keys(
+                &mut e,
+                meta,
+                transaction,
+                &invokes,
+            );
             crate::core::common_filler::fill_data(&mut e, meta, transaction, &invokes);
             result.push(e);
         }
@@ -201,6 +198,13 @@ fn parse_instructions(
     filter: Option<&EventTypeFilter>,
 ) -> Vec<DexEvent> {
     crate::grpc::instruction_parser::parse_instructions_enhanced(
-        meta, transaction, sig, slot, tx_idx, block_us, grpc_us, filter,
+        meta,
+        transaction,
+        sig,
+        slot,
+        tx_idx,
+        block_us,
+        grpc_us,
+        filter,
     )
 }

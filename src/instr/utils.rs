@@ -134,7 +134,9 @@ pub fn read_bytes(data: &[u8], offset: usize, length: usize) -> Option<&[u8]> {
 /// 其中 `is_cashback_enabled` 为 `OptionBool`，链上与 `bool` 同为 1 字节。
 /// `mint` / `bonding_curve` / `user` 在账户里，不在 data 中。
 #[inline]
-pub fn parse_create_v2_tail_fields(data_after_discriminator: &[u8]) -> Option<(Pubkey, bool, bool)> {
+pub fn parse_create_v2_tail_fields(
+    data_after_discriminator: &[u8],
+) -> Option<(Pubkey, bool, bool)> {
     let mut offset = 0usize;
     let (_, l) = read_str_unchecked(data_after_discriminator, offset)?;
     offset += l;

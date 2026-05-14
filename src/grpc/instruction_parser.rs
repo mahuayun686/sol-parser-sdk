@@ -5,7 +5,9 @@
 //! - 高性能：零拷贝，内联优化，并行处理
 //! - 可读性：每个步骤都有明确的注释
 
-use crate::core::{events::*, merger::merge_events, pumpfun_fee_enrich::enrich_pumpfun_same_tx_post_merge};
+use crate::core::{
+    events::*, merger::merge_events, pumpfun_fee_enrich::enrich_pumpfun_same_tx_post_merge,
+};
 use crate::grpc::types::EventTypeFilter;
 use crate::instr::read_pubkey_fast;
 use solana_sdk::pubkey::Pubkey;
@@ -186,7 +188,15 @@ fn parse_outer_instruction<'a>(
             }
         }
         crate::instr::parse_instruction_unified(
-            data, &stack[..n], sig, slot, tx_idx, block_us, grpc_us, filter, program_id,
+            data,
+            &stack[..n],
+            sig,
+            slot,
+            tx_idx,
+            block_us,
+            grpc_us,
+            filter,
+            program_id,
         )
     } else {
         let accounts: Vec<Pubkey> = account_indices
@@ -491,11 +501,8 @@ mod tests {
             ..Default::default()
         });
 
-        let events = vec![
-            (0, None, outer_event),
-            (0, Some(0), inner_trade),
-            (0, Some(1), inner_fee_only),
-        ];
+        let events =
+            vec![(0, None, outer_event), (0, Some(0), inner_trade), (0, Some(1), inner_fee_only)];
 
         let result = merge_instruction_events(events);
         assert_eq!(result.len(), 1);

@@ -4,22 +4,16 @@
 use crate::core::events::*;
 use solana_sdk::pubkey::Pubkey;
 
-pub const CREATE_FEE_SHARING_CONFIG_EVENT_DISC: [u8; 8] =
-    [133, 105, 170, 200, 184, 116, 251, 88];
-pub const INITIALIZE_FEE_CONFIG_EVENT_DISC: [u8; 8] =
-    [89, 138, 244, 230, 10, 56, 226, 126];
-pub const RESET_FEE_SHARING_CONFIG_EVENT_DISC: [u8; 8] =
-    [203, 204, 151, 226, 120, 55, 214, 243];
-pub const REVOKE_FEE_SHARING_AUTHORITY_EVENT_DISC: [u8; 8] =
-    [114, 23, 101, 60, 14, 190, 153, 62];
+pub const CREATE_FEE_SHARING_CONFIG_EVENT_DISC: [u8; 8] = [133, 105, 170, 200, 184, 116, 251, 88];
+pub const INITIALIZE_FEE_CONFIG_EVENT_DISC: [u8; 8] = [89, 138, 244, 230, 10, 56, 226, 126];
+pub const RESET_FEE_SHARING_CONFIG_EVENT_DISC: [u8; 8] = [203, 204, 151, 226, 120, 55, 214, 243];
+pub const REVOKE_FEE_SHARING_AUTHORITY_EVENT_DISC: [u8; 8] = [114, 23, 101, 60, 14, 190, 153, 62];
 pub const TRANSFER_FEE_SHARING_AUTHORITY_EVENT_DISC: [u8; 8] =
     [124, 143, 198, 245, 77, 184, 8, 236];
 pub const UPDATE_ADMIN_EVENT_DISC: [u8; 8] = [225, 152, 171, 87, 246, 63, 66, 234];
 pub const UPDATE_FEE_CONFIG_EVENT_DISC: [u8; 8] = [90, 23, 65, 35, 62, 244, 188, 208];
-pub const UPDATE_FEE_SHARES_EVENT_DISC: [u8; 8] =
-    [21, 186, 196, 184, 91, 228, 225, 203];
-pub const UPSERT_FEE_TIERS_EVENT_DISC: [u8; 8] =
-    [171, 89, 169, 187, 122, 186, 33, 204];
+pub const UPDATE_FEE_SHARES_EVENT_DISC: [u8; 8] = [21, 186, 196, 184, 91, 228, 225, 203];
+pub const UPSERT_FEE_TIERS_EVENT_DISC: [u8; 8] = [171, 89, 169, 187, 122, 186, 33, 204];
 
 #[inline(always)]
 pub const fn discriminant_u64(disc: &[u8; 8]) -> u64 {
@@ -128,7 +122,10 @@ pub(crate) fn read_fees_at(data: &[u8], o: &mut usize) -> Option<PumpFeesFees> {
 }
 
 #[inline(always)]
-pub(crate) fn read_shareholders_vec(data: &[u8], o: &mut usize) -> Option<Vec<PumpFeesShareholder>> {
+pub(crate) fn read_shareholders_vec(
+    data: &[u8],
+    o: &mut usize,
+) -> Option<Vec<PumpFeesShareholder>> {
     let n = read_u32_at(data, o)? as usize;
     if n > MAX_SHAREHOLDERS {
         return None;
@@ -251,15 +248,13 @@ pub fn parse_revoke_fee_sharing_authority_from_data(
     if o != data.len() {
         return None;
     }
-    Some(DexEvent::PumpFeesRevokeFeeSharingAuthority(
-        PumpFeesRevokeFeeSharingAuthorityEvent {
-            metadata,
-            timestamp,
-            mint,
-            sharing_config,
-            admin,
-        },
-    ))
+    Some(DexEvent::PumpFeesRevokeFeeSharingAuthority(PumpFeesRevokeFeeSharingAuthorityEvent {
+        metadata,
+        timestamp,
+        mint,
+        sharing_config,
+        admin,
+    }))
 }
 
 #[inline]
@@ -276,16 +271,14 @@ pub fn parse_transfer_fee_sharing_authority_from_data(
     if o != data.len() {
         return None;
     }
-    Some(DexEvent::PumpFeesTransferFeeSharingAuthority(
-        PumpFeesTransferFeeSharingAuthorityEvent {
-            metadata,
-            timestamp,
-            mint,
-            sharing_config,
-            old_admin,
-            new_admin,
-        },
-    ))
+    Some(DexEvent::PumpFeesTransferFeeSharingAuthority(PumpFeesTransferFeeSharingAuthorityEvent {
+        metadata,
+        timestamp,
+        mint,
+        sharing_config,
+        old_admin,
+        new_admin,
+    }))
 }
 
 #[inline]
@@ -306,10 +299,7 @@ pub fn parse_update_admin_from_data(data: &[u8], metadata: EventMetadata) -> Opt
 }
 
 #[inline]
-pub fn parse_update_fee_config_from_data(
-    data: &[u8],
-    metadata: EventMetadata,
-) -> Option<DexEvent> {
+pub fn parse_update_fee_config_from_data(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     let mut o = 0usize;
     let timestamp = read_i64_at(data, &mut o)?;
     let admin = read_pubkey_at(data, &mut o)?;
@@ -330,10 +320,7 @@ pub fn parse_update_fee_config_from_data(
 }
 
 #[inline]
-pub fn parse_update_fee_shares_from_data(
-    data: &[u8],
-    metadata: EventMetadata,
-) -> Option<DexEvent> {
+pub fn parse_update_fee_shares_from_data(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     let mut o = 0usize;
     let timestamp = read_i64_at(data, &mut o)?;
     let mint = read_pubkey_at(data, &mut o)?;
@@ -356,10 +343,7 @@ pub fn parse_update_fee_shares_from_data(
 }
 
 #[inline]
-pub fn parse_upsert_fee_tiers_from_data(
-    data: &[u8],
-    metadata: EventMetadata,
-) -> Option<DexEvent> {
+pub fn parse_upsert_fee_tiers_from_data(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     let mut o = 0usize;
     let timestamp = read_i64_at(data, &mut o)?;
     let admin = read_pubkey_at(data, &mut o)?;

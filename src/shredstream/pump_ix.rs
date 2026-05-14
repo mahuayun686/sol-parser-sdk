@@ -16,10 +16,10 @@ use crate::core::events::{
     PumpFunMigrateBondingCurveCreatorEvent, PumpFunTradeEvent,
 };
 use crate::instr::pump::discriminators;
+use crate::instr::pump::PROGRAM_ID_PUBKEY;
 use crate::instr::utils::{
     read_bool, read_option_bool_idl, read_pubkey, read_str_unchecked, read_u64_le,
 };
-use crate::instr::pump::PROGRAM_ID_PUBKEY;
 
 #[inline(always)]
 fn token_program_or_default(token_program: Pubkey) -> Pubkey {
@@ -222,12 +222,24 @@ fn parse_pumpfun_instruction(
     let ix_data = &data[8..];
 
     match disc {
-        d if d == discriminators::CREATE => {
-            parse_create_instruction(data, accounts, ix_accounts, signature, slot, tx_index, recv_us)
-        }
-        d if d == discriminators::CREATE_V2 => {
-            parse_create_v2_instruction(data, accounts, ix_accounts, signature, slot, tx_index, recv_us)
-        }
+        d if d == discriminators::CREATE => parse_create_instruction(
+            data,
+            accounts,
+            ix_accounts,
+            signature,
+            slot,
+            tx_index,
+            recv_us,
+        ),
+        d if d == discriminators::CREATE_V2 => parse_create_v2_instruction(
+            data,
+            accounts,
+            ix_accounts,
+            signature,
+            slot,
+            tx_index,
+            recv_us,
+        ),
         d if d == discriminators::BUY => parse_buy_instruction(
             ix_data,
             accounts,
@@ -239,9 +251,15 @@ fn parse_pumpfun_instruction(
             created_mints,
             mayhem_mints,
         ),
-        d if d == discriminators::SELL => {
-            parse_sell_instruction(ix_data, accounts, ix_accounts, signature, slot, tx_index, recv_us)
-        }
+        d if d == discriminators::SELL => parse_sell_instruction(
+            ix_data,
+            accounts,
+            ix_accounts,
+            signature,
+            slot,
+            tx_index,
+            recv_us,
+        ),
         d if d == discriminators::BUY_EXACT_SOL_IN => parse_buy_exact_sol_in_instruction(
             ix_data,
             accounts,
@@ -327,17 +345,15 @@ fn parse_migrate_bonding_curve_creator_shred(
         grpc_recv_us: recv_us,
         recent_blockhash: None,
     };
-    Some(DexEvent::PumpFunMigrateBondingCurveCreator(
-        PumpFunMigrateBondingCurveCreatorEvent {
-            metadata,
-            timestamp: 0,
-            mint,
-            bonding_curve,
-            sharing_config,
-            old_creator: Pubkey::default(),
-            new_creator: sharing_config,
-        },
-    ))
+    Some(DexEvent::PumpFunMigrateBondingCurveCreator(PumpFunMigrateBondingCurveCreatorEvent {
+        metadata,
+        timestamp: 0,
+        mint,
+        bonding_curve,
+        sharing_config,
+        old_creator: Pubkey::default(),
+        new_creator: sharing_config,
+    }))
 }
 
 #[inline]
@@ -354,8 +370,9 @@ fn parse_create_instruction(
         return None;
     }
 
-    let get_account =
-        |idx: usize| -> Option<Pubkey> { ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied() };
+    let get_account = |idx: usize| -> Option<Pubkey> {
+        ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied()
+    };
 
     let mut offset = 8;
 
@@ -428,8 +445,9 @@ fn parse_create_v2_instruction(
         return None;
     }
 
-    let get_account =
-        |idx: usize| -> Option<Pubkey> { ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied() };
+    let get_account = |idx: usize| -> Option<Pubkey> {
+        ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied()
+    };
 
     let payload = &data[8..];
     let mut offset = 0usize;
@@ -519,8 +537,9 @@ fn parse_buy_instruction(
         return None;
     }
 
-    let get_account =
-        |idx: usize| -> Option<Pubkey> { ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied() };
+    let get_account = |idx: usize| -> Option<Pubkey> {
+        ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied()
+    };
 
     let (token_amount, sol_amount) = if data.len() >= 16 {
         (read_u64_le(data, 0).unwrap_or(0), read_u64_le(data, 8).unwrap_or(0))
@@ -592,8 +611,9 @@ fn parse_sell_instruction(
         return None;
     }
 
-    let get_account =
-        |idx: usize| -> Option<Pubkey> { ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied() };
+    let get_account = |idx: usize| -> Option<Pubkey> {
+        ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied()
+    };
 
     let (token_amount, sol_amount) = if data.len() >= 16 {
         (read_u64_le(data, 0).unwrap_or(0), read_u64_le(data, 8).unwrap_or(0))
@@ -664,8 +684,9 @@ fn parse_buy_exact_sol_in_instruction(
         return None;
     }
 
-    let get_account =
-        |idx: usize| -> Option<Pubkey> { ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied() };
+    let get_account = |idx: usize| -> Option<Pubkey> {
+        ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied()
+    };
 
     let (sol_amount, token_amount) = if data.len() >= 16 {
         (read_u64_le(data, 0).unwrap_or(0), read_u64_le(data, 8).unwrap_or(0))
@@ -741,8 +762,9 @@ fn parse_buy_v2_instruction(
         return None;
     }
 
-    let get_account =
-        |idx: usize| -> Option<Pubkey> { ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied() };
+    let get_account = |idx: usize| -> Option<Pubkey> {
+        ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied()
+    };
 
     let (token_amount, sol_amount) = if data.len() >= 16 {
         (read_u64_le(data, 0).unwrap_or(0), read_u64_le(data, 8).unwrap_or(0))
@@ -817,8 +839,9 @@ fn parse_buy_exact_quote_in_v2_instruction(
         return None;
     }
 
-    let get_account =
-        |idx: usize| -> Option<Pubkey> { ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied() };
+    let get_account = |idx: usize| -> Option<Pubkey> {
+        ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied()
+    };
 
     let (sol_amount, token_amount) = if data.len() >= 16 {
         (read_u64_le(data, 0).unwrap_or(0), read_u64_le(data, 8).unwrap_or(0))
@@ -892,8 +915,9 @@ fn parse_sell_v2_instruction(
         return None;
     }
 
-    let get_account =
-        |idx: usize| -> Option<Pubkey> { ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied() };
+    let get_account = |idx: usize| -> Option<Pubkey> {
+        ix_accounts.get(idx).and_then(|&i| accounts.get(i as usize)).copied()
+    };
 
     let (token_amount, sol_amount) = if data.len() >= 16 {
         (read_u64_le(data, 0).unwrap_or(0), read_u64_le(data, 8).unwrap_or(0))

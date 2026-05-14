@@ -40,8 +40,8 @@
 pub mod client;
 pub mod config;
 pub(crate) mod pfees_ix;
-pub(crate) mod pump_ix;
 pub mod proto;
+pub(crate) mod pump_ix;
 
 pub use client::ShredStreamClient;
 pub use config::ShredStreamConfig;

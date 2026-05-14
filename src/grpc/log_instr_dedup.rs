@@ -134,19 +134,13 @@ fn log_instr_dedup_key(ev: &DexEvent) -> Option<LogInstrDedupKey> {
     match ev {
         PumpFunCreate(c) => Some(LogInstrDedupKey::PumpFunCreate { mint: c.mint }),
         PumpFunCreateV2(c) => Some(LogInstrDedupKey::PumpFunCreateV2 { mint: c.mint }),
-        PumpFunMigrate(m) => Some(LogInstrDedupKey::PumpFunMigrate {
-            mint: m.mint,
-            pool: m.pool,
-            user: m.user,
-        }),
-        BonkTrade(t) => Some(LogInstrDedupKey::BonkTrade {
-            pool: t.pool_state,
-            user: t.user,
-            is_buy: t.is_buy,
-        }),
-        BonkPoolCreate(p) => Some(LogInstrDedupKey::BonkPoolCreate {
-            pool: p.pool_state,
-        }),
+        PumpFunMigrate(m) => {
+            Some(LogInstrDedupKey::PumpFunMigrate { mint: m.mint, pool: m.pool, user: m.user })
+        }
+        BonkTrade(t) => {
+            Some(LogInstrDedupKey::BonkTrade { pool: t.pool_state, user: t.user, is_buy: t.is_buy })
+        }
+        BonkPoolCreate(p) => Some(LogInstrDedupKey::BonkPoolCreate { pool: p.pool_state }),
         BonkMigrateAmm(m) => Some(LogInstrDedupKey::BonkMigrateAmm {
             old_pool: m.old_pool,
             new_pool: m.new_pool,
@@ -158,27 +152,19 @@ fn log_instr_dedup_key(ev: &DexEvent) -> Option<LogInstrDedupKey> {
             is_buy: t.is_buy,
             ix_lane: pumpswap_ix_lane(t.ix_name.as_str()),
         }),
-        PumpSwapBuy(b) => Some(LogInstrDedupKey::PumpSwapBuy {
-            pool: b.pool,
-            user: b.user,
-        }),
-        PumpSwapSell(s) => Some(LogInstrDedupKey::PumpSwapSell {
-            pool: s.pool,
-            user: s.user,
-        }),
+        PumpSwapBuy(b) => Some(LogInstrDedupKey::PumpSwapBuy { pool: b.pool, user: b.user }),
+        PumpSwapSell(s) => Some(LogInstrDedupKey::PumpSwapSell { pool: s.pool, user: s.user }),
         PumpSwapCreatePool(c) => Some(LogInstrDedupKey::PumpSwapCreatePool {
             pool: c.pool,
             base_mint: c.base_mint,
             quote_mint: c.quote_mint,
         }),
-        PumpSwapLiquidityAdded(a) => Some(LogInstrDedupKey::PumpSwapLiquidityAdded {
-            pool: a.pool,
-            user: a.user,
-        }),
-        PumpSwapLiquidityRemoved(r) => Some(LogInstrDedupKey::PumpSwapLiquidityRemoved {
-            pool: r.pool,
-            user: r.user,
-        }),
+        PumpSwapLiquidityAdded(a) => {
+            Some(LogInstrDedupKey::PumpSwapLiquidityAdded { pool: a.pool, user: a.user })
+        }
+        PumpSwapLiquidityRemoved(r) => {
+            Some(LogInstrDedupKey::PumpSwapLiquidityRemoved { pool: r.pool, user: r.user })
+        }
         RaydiumClmmSwap(s) => Some(LogInstrDedupKey::RaydiumClmmSwap {
             pool: s.pool_state,
             zero_for_one: s.zero_for_one,

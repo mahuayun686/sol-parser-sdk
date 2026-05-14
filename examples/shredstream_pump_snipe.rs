@@ -108,9 +108,15 @@ async fn run_snipe_monitor(endpoint: &str) -> Result<(), Box<dyn std::error::Err
                         consumer_created.lock().unwrap().insert(mint.clone());
 
                         println!("\n");
-                        println!("╔══════════════════════════════════════════════════════════════════╗");
-                        println!("║                   🎯 PUMPFUN 代币创建 (Legacy)                    ║");
-                        println!("╠══════════════════════════════════════════════════════════════════╣");
+                        println!(
+                            "╔══════════════════════════════════════════════════════════════════╗"
+                        );
+                        println!(
+                            "║                   🎯 PUMPFUN 代币创建 (Legacy)                    ║"
+                        );
+                        println!(
+                            "╠══════════════════════════════════════════════════════════════════╣"
+                        );
                         println!("║  代币名称: {:<50} ║", truncate(&create_event.name, 50));
                         println!("║  代币符号: {:<50} ║", truncate(&create_event.symbol, 50));
                         println!("║  Mint:     {:<50} ║", mint);
@@ -118,10 +124,15 @@ async fn run_snipe_monitor(endpoint: &str) -> Result<(), Box<dyn std::error::Err
                         println!("║  用户:     {:<50} ║", user);
                         println!("║  Bonding:  {:<50} ║", create_event.bonding_curve.to_string());
                         println!("║  Slot:     {:<50} ║", create_event.metadata.slot);
-                        println!("║  Sig:      {:<50} ║", truncate(&create_event.metadata.signature.to_string(), 50));
+                        println!(
+                            "║  Sig:      {:<50} ║",
+                            truncate(&create_event.metadata.signature.to_string(), 50)
+                        );
                         println!("╠────────────────────────────────────────────────────────────────────╣");
                         println!("║  📊 延迟:  {} μs", latency_us);
-                        println!("╚══════════════════════════════════════════════════════════════════╝");
+                        println!(
+                            "╚══════════════════════════════════════════════════════════════════╝"
+                        );
                     }
 
                     // ========== 代币创建 V2 事件 ==========
@@ -135,20 +146,34 @@ async fn run_snipe_monitor(endpoint: &str) -> Result<(), Box<dyn std::error::Err
                         consumer_created.lock().unwrap().insert(mint.clone());
 
                         println!("\n");
-                        println!("╔══════════════════════════════════════════════════════════════════╗");
-                        println!("║                 🎯 PUMPFUN 代币创建 V2 (SPL-22)                   ║");
-                        println!("╠══════════════════════════════════════════════════════════════════╣");
+                        println!(
+                            "╔══════════════════════════════════════════════════════════════════╗"
+                        );
+                        println!(
+                            "║                 🎯 PUMPFUN 代币创建 V2 (SPL-22)                   ║"
+                        );
+                        println!(
+                            "╠══════════════════════════════════════════════════════════════════╣"
+                        );
                         println!("║  代币名称: {:<50} ║", truncate(&create_v2_event.name, 50));
                         println!("║  代币符号: {:<50} ║", truncate(&create_v2_event.symbol, 50));
                         println!("║  Mint:     {:<50} ║", mint);
                         println!("║  创建者:   {:<50} ║", creator);
                         println!("║  用户:     {:<50} ║", user);
-                        println!("║  Bonding:  {:<50} ║", create_v2_event.bonding_curve.to_string());
+                        println!(
+                            "║  Bonding:  {:<50} ║",
+                            create_v2_event.bonding_curve.to_string()
+                        );
                         println!("║  Slot:     {:<50} ║", create_v2_event.metadata.slot);
-                        println!("║  Sig:      {:<50} ║", truncate(&create_v2_event.metadata.signature.to_string(), 50));
+                        println!(
+                            "║  Sig:      {:<50} ║",
+                            truncate(&create_v2_event.metadata.signature.to_string(), 50)
+                        );
                         println!("╠────────────────────────────────────────────────────────────────────╣");
                         println!("║  📊 延迟:  {} μs", latency_us);
-                        println!("╚══════════════════════════════════════════════════════════════════╝");
+                        println!(
+                            "╚══════════════════════════════════════════════════════════════════╝"
+                        );
                     }
 
                     // ========== 交易事件（检测 is_created_buy） ==========
@@ -174,12 +199,27 @@ async fn run_snipe_monitor(endpoint: &str) -> Result<(), Box<dyn std::error::Err
                                 println!("╠══════════════════════════════════════════════════════════════════╣");
                                 println!("║  Mint:        {:<47} ║", mint);
                                 println!("║  买入者:      {:<47} ║", trade_event.user.to_string());
-                                println!("║  Bonding:     {:<47} ║", trade_event.bonding_curve.to_string());
-                                println!("║  SOL 数量:    {:<47} ║", format!("{}", trade_event.sol_amount));
-                                println!("║  Token 数量:  {:<47} ║", format!("{}", trade_event.token_amount));
+                                println!(
+                                    "║  Bonding:     {:<47} ║",
+                                    trade_event.bonding_curve.to_string()
+                                );
+                                println!(
+                                    "║  SOL 数量:    {:<47} ║",
+                                    format!("{}", trade_event.sol_amount)
+                                );
+                                println!(
+                                    "║  Token 数量:  {:<47} ║",
+                                    format!("{}", trade_event.token_amount)
+                                );
                                 println!("║  Slot:        {:<47} ║", trade_event.metadata.slot);
-                                println!("║  新创建代币:  {:<47} ║", if is_new_token { "✅ 是" } else { "❌ 否" });
-                                println!("║  Sig:         {:<47} ║", truncate(&trade_event.metadata.signature.to_string(), 47));
+                                println!(
+                                    "║  新创建代币:  {:<47} ║",
+                                    if is_new_token { "✅ 是" } else { "❌ 否" }
+                                );
+                                println!(
+                                    "║  Sig:         {:<47} ║",
+                                    truncate(&trade_event.metadata.signature.to_string(), 47)
+                                );
                                 println!("╠────────────────────────────────────────────────────────────────────╣");
                                 println!("║  📊 延迟:     {} μs", latency_us);
                                 println!("╚══════════════════════════════════════════════════════════════════╝");

@@ -15,7 +15,6 @@ use solana_sdk::pubkey::Pubkey;
 // - **启用**: `cargo build --features parse-zero-copy --no-default-features`
 // - 特点：最高性能、零内存分配、直接读取内存
 
-
 pub mod discriminators {
     pub const TRADED: [u8; 16] =
         [225, 202, 73, 175, 147, 43, 160, 150, 155, 167, 108, 32, 122, 76, 173, 64];
@@ -66,8 +65,7 @@ fn parse_swap_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
         return None;
     }
 
-    let mut event =
-        borsh::from_slice::<OrcaWhirlpoolSwapEvent>(&data[..SWAP_EVENT_SIZE]).ok()?;
+    let mut event = borsh::from_slice::<OrcaWhirlpoolSwapEvent>(&data[..SWAP_EVENT_SIZE]).ok()?;
     event.metadata = metadata;
     Some(DexEvent::OrcaWhirlpoolSwap(event))
 }
@@ -128,10 +126,9 @@ fn parse_liquidity_increased_borsh(data: &[u8], metadata: EventMetadata) -> Opti
         return None;
     }
 
-    let mut event = borsh::from_slice::<OrcaWhirlpoolLiquidityIncreasedEvent>(
-        &data[..LIQUIDITY_EVENT_SIZE],
-    )
-    .ok()?;
+    let mut event =
+        borsh::from_slice::<OrcaWhirlpoolLiquidityIncreasedEvent>(&data[..LIQUIDITY_EVENT_SIZE])
+            .ok()?;
     event.metadata = metadata;
     Some(DexEvent::OrcaWhirlpoolLiquidityIncreased(event))
 }
@@ -139,10 +136,7 @@ fn parse_liquidity_increased_borsh(data: &[u8], metadata: EventMetadata) -> Opti
 /// 零拷贝解析器
 #[cfg(feature = "parse-zero-copy")]
 #[inline(always)]
-fn parse_liquidity_increased_zero_copy(
-    data: &[u8],
-    metadata: EventMetadata,
-) -> Option<DexEvent> {
+fn parse_liquidity_increased_zero_copy(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     unsafe {
         if !check_length(data, 32 + 16 + 8 + 8) {
             return None;
@@ -194,10 +188,9 @@ fn parse_liquidity_decreased_borsh(data: &[u8], metadata: EventMetadata) -> Opti
         return None;
     }
 
-    let mut event = borsh::from_slice::<OrcaWhirlpoolLiquidityDecreasedEvent>(
-        &data[..LIQUIDITY_EVENT_SIZE],
-    )
-    .ok()?;
+    let mut event =
+        borsh::from_slice::<OrcaWhirlpoolLiquidityDecreasedEvent>(&data[..LIQUIDITY_EVENT_SIZE])
+            .ok()?;
     event.metadata = metadata;
     Some(DexEvent::OrcaWhirlpoolLiquidityDecreased(event))
 }
@@ -205,10 +198,7 @@ fn parse_liquidity_decreased_borsh(data: &[u8], metadata: EventMetadata) -> Opti
 /// 零拷贝解析器
 #[cfg(feature = "parse-zero-copy")]
 #[inline(always)]
-fn parse_liquidity_decreased_zero_copy(
-    data: &[u8],
-    metadata: EventMetadata,
-) -> Option<DexEvent> {
+fn parse_liquidity_decreased_zero_copy(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     unsafe {
         if !check_length(data, 32 + 16 + 8 + 8) {
             return None;

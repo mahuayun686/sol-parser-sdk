@@ -173,10 +173,7 @@ mod tests {
                 Pubkey::default()
             }
         };
-        let mut e = PumpFunTradeEvent {
-            fee_recipient: Pubkey::default(),
-            ..Default::default()
-        };
+        let mut e = PumpFunTradeEvent { fee_recipient: Pubkey::default(), ..Default::default() };
         fill_trade_accounts(&mut e, &get);
         assert_eq!(e.fee_recipient, fee);
     }

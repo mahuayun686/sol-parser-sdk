@@ -2,17 +2,14 @@ use crate::core::events::*;
 use crate::instr::inner_common::*;
 use solana_sdk::pubkey::Pubkey;
 
-
 pub mod discriminators {
     pub const SWAP_BASE_IN: [u8; 16] =
         [0, 0, 0, 0, 0, 0, 0, 9, 155, 167, 108, 32, 122, 76, 173, 64];
     pub const SWAP_BASE_OUT: [u8; 16] =
         [0, 0, 0, 0, 0, 0, 0, 11, 155, 167, 108, 32, 122, 76, 173, 64];
     pub const DEPOSIT: [u8; 16] = [0, 0, 0, 0, 0, 0, 0, 3, 155, 167, 108, 32, 122, 76, 173, 64];
-    pub const WITHDRAW: [u8; 16] =
-        [0, 0, 0, 0, 0, 0, 0, 4, 155, 167, 108, 32, 122, 76, 173, 64];
-    pub const INITIALIZE2: [u8; 16] =
-        [0, 0, 0, 0, 0, 0, 0, 1, 155, 167, 108, 32, 122, 76, 173, 64];
+    pub const WITHDRAW: [u8; 16] = [0, 0, 0, 0, 0, 0, 0, 4, 155, 167, 108, 32, 122, 76, 173, 64];
+    pub const INITIALIZE2: [u8; 16] = [0, 0, 0, 0, 0, 0, 0, 1, 155, 167, 108, 32, 122, 76, 173, 64];
 }
 
 /// 主入口：根据 discriminator 解析事件

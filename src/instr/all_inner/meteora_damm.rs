@@ -301,10 +301,7 @@ fn parse_add_liquidity_borsh(data: &[u8], metadata: EventMetadata) -> Option<Dex
     let event =
         borsh::from_slice::<MeteoraDammV2AddLiquidityEvent>(&data[..ADD_LIQUIDITY_EVENT_SIZE])
             .ok()?;
-    Some(DexEvent::MeteoraDammV2AddLiquidity(MeteoraDammV2AddLiquidityEvent {
-        metadata,
-        ..event
-    }))
+    Some(DexEvent::MeteoraDammV2AddLiquidity(MeteoraDammV2AddLiquidityEvent { metadata, ..event }))
 }
 
 /// 零拷贝解析器
@@ -429,10 +426,9 @@ fn parse_create_position_borsh(data: &[u8], metadata: EventMetadata) -> Option<D
         return None;
     }
 
-    let event = borsh::from_slice::<MeteoraDammV2CreatePositionEvent>(
-        &data[..CREATE_POSITION_EVENT_SIZE],
-    )
-    .ok()?;
+    let event =
+        borsh::from_slice::<MeteoraDammV2CreatePositionEvent>(&data[..CREATE_POSITION_EVENT_SIZE])
+            .ok()?;
     Some(DexEvent::MeteoraDammV2CreatePosition(MeteoraDammV2CreatePositionEvent {
         metadata,
         ..event
@@ -489,10 +485,9 @@ fn parse_close_position_borsh(data: &[u8], metadata: EventMetadata) -> Option<De
         return None;
     }
 
-    let event = borsh::from_slice::<MeteoraDammV2ClosePositionEvent>(
-        &data[..CLOSE_POSITION_EVENT_SIZE],
-    )
-    .ok()?;
+    let event =
+        borsh::from_slice::<MeteoraDammV2ClosePositionEvent>(&data[..CLOSE_POSITION_EVENT_SIZE])
+            .ok()?;
     Some(DexEvent::MeteoraDammV2ClosePosition(MeteoraDammV2ClosePositionEvent {
         metadata,
         ..event
