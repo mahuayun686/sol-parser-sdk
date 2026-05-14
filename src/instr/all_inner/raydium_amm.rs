@@ -32,7 +32,7 @@ pub fn parse(disc: &[u8; 16], data: &[u8], metadata: EventMetadata) -> Option<De
 /// 解析 Swap 事件（统一入口）
 #[inline(always)]
 fn parse_swap(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_swap_borsh(data, metadata)
     }
@@ -44,7 +44,7 @@ fn parse_swap(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
 }
 
 /// Borsh 反序列化解析器 - Swap 事件
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_swap_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构:
@@ -109,7 +109,7 @@ fn parse_swap_zero_copy(data: &[u8], metadata: EventMetadata) -> Option<DexEvent
 /// 解析 Deposit 事件（统一入口）
 #[inline(always)]
 fn parse_deposit(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_deposit_borsh(data, metadata)
     }
@@ -121,7 +121,7 @@ fn parse_deposit(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
 }
 
 /// Borsh 反序列化解析器 - Deposit 事件
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_deposit_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构:
@@ -181,7 +181,7 @@ fn parse_deposit_zero_copy(data: &[u8], metadata: EventMetadata) -> Option<DexEv
 /// 解析 Withdraw 事件（统一入口）
 #[inline(always)]
 fn parse_withdraw(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_withdraw_borsh(data, metadata)
     }
@@ -193,7 +193,7 @@ fn parse_withdraw(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
 }
 
 /// Borsh 反序列化解析器 - Withdraw 事件
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_withdraw_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构:

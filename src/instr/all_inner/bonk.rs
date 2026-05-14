@@ -41,7 +41,7 @@ pub fn parse(disc: &[u8; 16], data: &[u8], metadata: EventMetadata) -> Option<De
 /// 解析 Trade 事件（统一入口）
 #[inline(always)]
 fn parse_trade(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_trade_borsh(data, metadata)
     }
@@ -53,7 +53,7 @@ fn parse_trade(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
 }
 
 /// Borsh 解析器
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_trade_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构：pool_state(32) + user(32) + amount_in(8) + amount_out(8) + is_buy(1) = 81 bytes

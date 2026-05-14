@@ -10,10 +10,9 @@
 //! ## 使用示例
 //! ```rust,no_run
 //! use sol_parser_sdk::shredstream::{ShredStreamClient, ShredStreamConfig};
-//! use sol_parser_sdk::DexEvent;
 //!
 //! #[tokio::main]
-//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 //!     let client = ShredStreamClient::new("http://localhost:10800").await?;
 //!
 //!     // 订阅并获取事件队列

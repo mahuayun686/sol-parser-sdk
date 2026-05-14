@@ -13,7 +13,6 @@
 
 use sol_parser_sdk::core::now_micros;
 use sol_parser_sdk::shredstream::{ShredStreamClient, ShredStreamConfig};
-use sol_parser_sdk::DexEvent;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
@@ -39,14 +38,14 @@ fn update_min_max(min: &Arc<AtomicU64>, max: &Arc<AtomicU64>, value: u64) {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("🚀 ShredStream Low-Latency Test");
     println!("================================\n");
 
     run_example().await
 }
 
-async fn run_example() -> Result<(), Box<dyn std::error::Error>> {
+async fn run_example() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // 配置
     let config = ShredStreamConfig {
         connection_timeout_ms: 5000,
@@ -139,27 +138,23 @@ async fn run_example() -> Result<(), Box<dyn std::error::Error>> {
                 // 使用高性能时钟源
                 let queue_recv_us = now_micros();
 
-                // 获取元数据
-                let grpc_recv_us_opt = event.metadata().map(|m| m.grpc_recv_us);
+                let grpc_recv_us = event.metadata().grpc_recv_us;
+                let latency_us = (queue_recv_us - grpc_recv_us) as u64;
 
-                if let Some(grpc_recv_us) = grpc_recv_us_opt {
-                    let latency_us = (queue_recv_us - grpc_recv_us) as u64;
+                // 更新统计
+                consumer_event_count.fetch_add(1, Ordering::Relaxed);
+                consumer_total_latency.fetch_add(latency_us, Ordering::Relaxed);
+                update_min_max(&consumer_min_latency, &consumer_max_latency, latency_us);
 
-                    // 更新统计
-                    consumer_event_count.fetch_add(1, Ordering::Relaxed);
-                    consumer_total_latency.fetch_add(latency_us, Ordering::Relaxed);
-                    update_min_max(&consumer_min_latency, &consumer_max_latency, latency_us);
-
-                    // 打印完整的时间指标和事件数据
-                    println!("\n================================================");
-                    println!("ShredStream接收时间: {} μs", grpc_recv_us);
-                    println!("事件接收时间:       {} μs", queue_recv_us);
-                    println!("延迟时间:           {} μs", latency_us);
-                    println!("队列长度:           {}", queue.len());
-                    println!("================================================");
-                    println!("{:?}", event);
-                    println!();
-                }
+                // 打印完整的时间指标和事件数据
+                println!("\n================================================");
+                println!("ShredStream接收时间: {} μs", grpc_recv_us);
+                println!("事件接收时间:       {} μs", queue_recv_us);
+                println!("延迟时间:           {} μs", latency_us);
+                println!("队列长度:           {}", queue.len());
+                println!("================================================");
+                println!("{:?}", event);
+                println!();
             } else {
                 spin_count += 1;
                 if spin_count < 1000 {

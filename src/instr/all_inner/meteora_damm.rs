@@ -52,7 +52,7 @@ pub fn parse(disc: &[u8; 16], data: &[u8], metadata: EventMetadata) -> Option<De
 /// 解析 Swap 事件（统一入口）
 #[inline(always)]
 fn parse_swap(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_swap_borsh(data, metadata)
     }
@@ -64,7 +64,7 @@ fn parse_swap(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
 }
 
 /// Borsh 解析器
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_swap_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构：pool(32) + amount_in(8) + output_amount(8) = 48 bytes
@@ -105,7 +105,7 @@ fn parse_swap_zero_copy(data: &[u8], metadata: EventMetadata) -> Option<DexEvent
 /// 解析 Swap2 事件（统一入口）
 #[inline(always)]
 fn parse_swap2(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_swap2_borsh(data, metadata)
     }
@@ -117,7 +117,7 @@ fn parse_swap2(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
 }
 
 /// Borsh 解析器 for Swap2
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_swap2_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // Swap2 事件结构：
@@ -277,7 +277,7 @@ fn parse_swap2_zero_copy(data: &[u8], metadata: EventMetadata) -> Option<DexEven
 /// 解析 AddLiquidity 事件（统一入口）
 #[inline(always)]
 fn parse_add_liquidity(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_add_liquidity_borsh(data, metadata)
     }
@@ -289,7 +289,7 @@ fn parse_add_liquidity(data: &[u8], metadata: EventMetadata) -> Option<DexEvent>
 }
 
 /// Borsh 解析器
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_add_liquidity_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构：pool(32) + position(32) + owner(32) + token_a_amount(8) + token_b_amount(8) = 112 bytes
@@ -340,7 +340,7 @@ fn parse_add_liquidity_zero_copy(data: &[u8], metadata: EventMetadata) -> Option
 /// 解析 RemoveLiquidity 事件（统一入口）
 #[inline(always)]
 fn parse_remove_liquidity(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_remove_liquidity_borsh(data, metadata)
     }
@@ -352,7 +352,7 @@ fn parse_remove_liquidity(data: &[u8], metadata: EventMetadata) -> Option<DexEve
 }
 
 /// Borsh 解析器
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_remove_liquidity_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构：pool(32) + position(32) + owner(32) + token_a_amount(8) + token_b_amount(8) = 112 bytes
@@ -405,7 +405,7 @@ fn parse_remove_liquidity_zero_copy(data: &[u8], metadata: EventMetadata) -> Opt
 /// 解析 CreatePosition 事件（统一入口）
 #[inline(always)]
 fn parse_create_position(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_create_position_borsh(data, metadata)
     }
@@ -417,7 +417,7 @@ fn parse_create_position(data: &[u8], metadata: EventMetadata) -> Option<DexEven
 }
 
 /// Borsh 解析器
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_create_position_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构：pool(32) + owner(32) + position(32) + position_nft_mint(32) = 128 bytes
@@ -464,7 +464,7 @@ fn parse_create_position_zero_copy(data: &[u8], metadata: EventMetadata) -> Opti
 /// 解析 ClosePosition 事件（统一入口）
 #[inline(always)]
 fn parse_close_position(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_close_position_borsh(data, metadata)
     }
@@ -476,7 +476,7 @@ fn parse_close_position(data: &[u8], metadata: EventMetadata) -> Option<DexEvent
 }
 
 /// Borsh 解析器
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_close_position_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构：pool(32) + owner(32) + position(32) + position_nft_mint(32) = 128 bytes

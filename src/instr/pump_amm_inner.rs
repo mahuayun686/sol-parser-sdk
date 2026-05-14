@@ -100,7 +100,7 @@ pub fn parse_pumpswap_inner_instruction(
 /// 根据编译时的 feature flag 自动选择解析器实现
 #[inline(always)]
 fn parse_buy_inner(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_buy_inner_borsh(data, metadata)
     }
@@ -114,7 +114,7 @@ fn parse_buy_inner(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
 /// Borsh 反序列化解析器 - Buy 事件
 ///
 /// **优点**: 类型安全、代码简洁、自动验证
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_buy_inner_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // PumpSwap BuyEvent 含可变长度 ix_name 及 cashback 字段，反序列化整段 data
@@ -240,7 +240,7 @@ fn parse_buy_inner_zero_copy(data: &[u8], metadata: EventMetadata) -> Option<Dex
             0
         };
         let ix_name = if offset + 4 <= data.len() {
-            if let Some((s, consumed)) = unsafe { read_string_unchecked(data, offset) } {
+            if let Some((s, consumed)) = read_string_unchecked(data, offset) {
                 offset += consumed;
                 s
             } else {
@@ -306,7 +306,7 @@ fn parse_buy_inner_zero_copy(data: &[u8], metadata: EventMetadata) -> Option<Dex
 /// 根据编译时的 feature flag 自动选择解析器实现
 #[inline(always)]
 fn parse_sell_inner(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_sell_inner_borsh(data, metadata)
     }
@@ -320,7 +320,7 @@ fn parse_sell_inner(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
 /// Borsh 反序列化解析器 - Sell 事件
 ///
 /// **优点**: 类型安全、代码简洁、自动验证
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_sell_inner_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // PumpSwap SellEvent 含 cashback_fee_basis_points, cashback (368 bytes 固定部分)

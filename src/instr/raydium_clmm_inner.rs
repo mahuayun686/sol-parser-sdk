@@ -67,7 +67,7 @@ pub fn parse_raydium_clmm_inner_instruction(
 /// 根据编译时的 feature flag 自动选择解析器实现
 #[inline(always)]
 fn parse_swap_inner(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_swap_inner_borsh(data, metadata)
     }
@@ -81,7 +81,7 @@ fn parse_swap_inner(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
 /// Borsh 反序列化解析器 - Swap 事件
 ///
 /// **优点**: 类型安全、代码简洁、自动验证
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_swap_inner_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构:
@@ -167,7 +167,7 @@ fn parse_swap_inner_zero_copy(data: &[u8], metadata: EventMetadata) -> Option<De
 /// 解析 IncreaseLiquidity 事件（统一入口）
 #[inline(always)]
 fn parse_increase_liquidity_inner(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_increase_liquidity_inner_borsh(data, metadata)
     }
@@ -179,7 +179,7 @@ fn parse_increase_liquidity_inner(data: &[u8], metadata: EventMetadata) -> Optio
 }
 
 /// Borsh 反序列化解析器 - IncreaseLiquidity 事件
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_increase_liquidity_inner_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构:
@@ -245,7 +245,7 @@ fn parse_increase_liquidity_inner_zero_copy(
 /// 解析 DecreaseLiquidity 事件（统一入口）
 #[inline(always)]
 fn parse_decrease_liquidity_inner(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_decrease_liquidity_inner_borsh(data, metadata)
     }
@@ -257,7 +257,7 @@ fn parse_decrease_liquidity_inner(data: &[u8], metadata: EventMetadata) -> Optio
 }
 
 /// Borsh 反序列化解析器 - DecreaseLiquidity 事件
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_decrease_liquidity_inner_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构:
@@ -323,7 +323,7 @@ fn parse_decrease_liquidity_inner_zero_copy(
 /// 解析 CreatePool 事件（统一入口）
 #[inline(always)]
 fn parse_create_pool_inner(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_create_pool_inner_borsh(data, metadata)
     }
@@ -335,7 +335,7 @@ fn parse_create_pool_inner(data: &[u8], metadata: EventMetadata) -> Option<DexEv
 }
 
 /// Borsh 反序列化解析器 - CreatePool 事件
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_create_pool_inner_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构:
@@ -400,7 +400,7 @@ fn parse_create_pool_inner_zero_copy(data: &[u8], metadata: EventMetadata) -> Op
 /// 解析 CollectFee 事件（统一入口）
 #[inline(always)]
 fn parse_collect_fee_inner(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_collect_fee_inner_borsh(data, metadata)
     }
@@ -412,7 +412,7 @@ fn parse_collect_fee_inner(data: &[u8], metadata: EventMetadata) -> Option<DexEv
 }
 
 /// Borsh 反序列化解析器 - CollectFee 事件
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_collect_fee_inner_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构:

@@ -44,7 +44,7 @@ pub fn parse(disc: &[u8; 16], data: &[u8], metadata: EventMetadata) -> Option<De
 /// 解析 Swap 事件（统一入口）
 #[inline(always)]
 fn parse_swap(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_swap_borsh(data, metadata)
     }
@@ -56,7 +56,7 @@ fn parse_swap(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
 }
 
 /// Borsh 解析器
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_swap_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构：whirlpool(32) + input_amount(8) + output_amount(8) + a_to_b(1) = 49 bytes
@@ -105,7 +105,7 @@ fn parse_swap_zero_copy(data: &[u8], metadata: EventMetadata) -> Option<DexEvent
 /// 解析 LiquidityIncreased 事件（统一入口）
 #[inline(always)]
 fn parse_liquidity_increased(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_liquidity_increased_borsh(data, metadata)
     }
@@ -117,7 +117,7 @@ fn parse_liquidity_increased(data: &[u8], metadata: EventMetadata) -> Option<Dex
 }
 
 /// Borsh 解析器
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_liquidity_increased_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构：whirlpool(32) + liquidity(16) + token_a_amount(8) + token_b_amount(8) = 64 bytes
@@ -167,7 +167,7 @@ fn parse_liquidity_increased_zero_copy(data: &[u8], metadata: EventMetadata) -> 
 /// 解析 LiquidityDecreased 事件（统一入口）
 #[inline(always)]
 fn parse_liquidity_decreased(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_liquidity_decreased_borsh(data, metadata)
     }
@@ -179,7 +179,7 @@ fn parse_liquidity_decreased(data: &[u8], metadata: EventMetadata) -> Option<Dex
 }
 
 /// Borsh 解析器
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_liquidity_decreased_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // 数据结构：whirlpool(32) + liquidity(16) + token_a_amount(8) + token_b_amount(8) = 64 bytes

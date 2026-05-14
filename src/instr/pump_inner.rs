@@ -155,7 +155,7 @@ fn parse_trade_event_inner(
     metadata: EventMetadata,
     is_created_buy: bool,
 ) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_trade_event_inner_borsh(data, metadata, is_created_buy)
     }
@@ -169,7 +169,7 @@ fn parse_trade_event_inner(
 /// Borsh 反序列化解析器 - Trade 事件
 ///
 /// **优点**: 类型安全、代码简洁、自动验证
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_trade_event_inner_borsh(
     data: &[u8],
@@ -351,7 +351,7 @@ fn parse_trade_event_inner_zero_copy(
 /// 根据编译时的 feature flag 自动选择解析器实现
 #[inline(always)]
 fn parse_create_event_inner(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_create_event_inner_borsh(data, metadata)
     }
@@ -365,7 +365,7 @@ fn parse_create_event_inner(data: &[u8], metadata: EventMetadata) -> Option<DexE
 /// Borsh 反序列化解析器 - Create 事件
 ///
 /// **优点**: 类型安全、代码简洁、自动验证
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_create_event_inner_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // CreateTokenEvent 包含多个 String 字段，不是固定大小
@@ -468,7 +468,7 @@ fn parse_create_event_inner_zero_copy(data: &[u8], metadata: EventMetadata) -> O
 /// 根据编译时的 feature flag 自动选择解析器实现
 #[inline(always)]
 fn parse_migrate_event_inner(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
-    #[cfg(feature = "parse-borsh")]
+    #[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
     {
         parse_migrate_event_inner_borsh(data, metadata)
     }
@@ -482,7 +482,7 @@ fn parse_migrate_event_inner(data: &[u8], metadata: EventMetadata) -> Option<Dex
 /// Borsh 反序列化解析器 - Migrate 事件
 ///
 /// **优点**: 类型安全、代码简洁、自动验证
-#[cfg(feature = "parse-borsh")]
+#[cfg(all(feature = "parse-borsh", not(feature = "parse-zero-copy")))]
 #[inline(always)]
 fn parse_migrate_event_inner_borsh(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
     // MigrateEvent 固定大小
