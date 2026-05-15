@@ -1,43 +1,31 @@
-//! Bonk 日志解析器
+//! Raydium Launchpad 日志解析器
 //!
-//! 使用 match discriminator 模式解析 Bonk 事件
+//! 事件类型名称沿用历史的 `Bonk*`，底层按 `idl/raydium_launchpad.json`
+//! 的真实 event discriminator 和 Borsh 布局解析。
 
 use super::utils::*;
 use crate::core::events::*;
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
 
-/// Bonk discriminator 常量
+/// Raydium Launchpad event discriminators from `idl/raydium_launchpad.json`.
 pub mod discriminators {
-    pub const TRADE: [u8; 8] = [2, 3, 4, 5, 6, 7, 8, 9];
-    pub const POOL_CREATE: [u8; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
-    pub const MIGRATE_AMM: [u8; 8] = [3, 4, 5, 6, 7, 8, 9, 10];
+    pub const CLAIM_VESTED: [u8; 8] = [21, 194, 114, 87, 120, 211, 226, 32];
+    pub const CREATE_VESTING: [u8; 8] = [150, 152, 11, 179, 52, 210, 191, 125];
+    pub const POOL_CREATE: [u8; 8] = [151, 215, 226, 9, 118, 161, 115, 174];
+    pub const TRADE: [u8; 8] = [189, 219, 127, 211, 78, 230, 97, 238];
 }
 
-/// Bonk 程序 ID
-pub const PROGRAM_ID: &str = "DjVE6JNiYqPL2QXyCUUh8rNjHrbz9hXHNYt99MQ59qw1";
+/// Raydium Launchpad 程序 ID
+pub const PROGRAM_ID: &str = "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj";
 
 /// 检查日志是否来自 Raydium Launchpad 程序
 pub fn is_raydium_launchpad_log(log: &str) -> bool {
     log.contains(&format!("Program {} invoke", PROGRAM_ID))
         || log.contains(&format!("Program {} success", PROGRAM_ID))
-        || log.contains("bonk")
-        || log.contains("Bonk")
 }
 
-/// 主要的 Bonk 日志解析函数
+/// 主要的 Raydium Launchpad 日志解析函数
 pub fn parse_log(
-    log: &str,
-    signature: Signature,
-    slot: u64,
-    tx_index: u64,
-    block_time_us: Option<i64>,
-    grpc_recv_us: i64,
-) -> Option<DexEvent> {
-    parse_structured_log(log, signature, slot, tx_index, block_time_us, grpc_recv_us)
-}
-
-/// 结构化日志解析（基于 Program data）
-fn parse_structured_log(
     log: &str,
     signature: Signature,
     slot: u64,
@@ -52,56 +40,36 @@ fn parse_structured_log(
 
     let discriminator: [u8; 8] = program_data[0..8].try_into().ok()?;
     let data = &program_data[8..];
+    let metadata = EventMetadata {
+        signature,
+        slot,
+        tx_index,
+        block_time_us: block_time_us.unwrap_or(0),
+        grpc_recv_us,
+        recent_blockhash: None,
+    };
 
     match discriminator {
-        discriminators::TRADE => {
-            parse_trade_event(data, signature, slot, tx_index, block_time_us, grpc_recv_us)
-        }
-        discriminators::POOL_CREATE => {
-            parse_pool_create_event(data, signature, slot, tx_index, block_time_us, grpc_recv_us)
-        }
-        discriminators::MIGRATE_AMM => {
-            parse_migrate_amm_event(data, signature, slot, tx_index, block_time_us, grpc_recv_us)
-        }
+        discriminators::TRADE => parse_trade_from_data(data, metadata),
+        discriminators::POOL_CREATE => parse_pool_create_from_data(data, metadata),
         _ => None,
     }
 }
 
-/// 解析交易事件
-fn parse_trade_event(
-    data: &[u8],
-    signature: Signature,
-    slot: u64,
-    tx_index: u64,
-    block_time_us: Option<i64>,
-    grpc_recv_us: i64,
-) -> Option<DexEvent> {
-    let mut offset = 0;
-
-    let pool_state = read_pubkey(data, offset)?;
-    offset += 32;
-
-    let user = read_pubkey(data, offset)?;
-    offset += 32;
-
-    let amount_in = read_u64_le(data, offset)?;
-    offset += 8;
-
-    let amount_out = read_u64_le(data, offset)?;
-    offset += 8;
-
-    let is_buy = read_bool(data, offset)?;
-    offset += 1;
-
-    let exact_in = read_bool(data, offset)?;
-
-    let metadata =
-        create_metadata_simple(signature, slot, tx_index, block_time_us, pool_state, grpc_recv_us);
+/// Parse Raydium Launchpad TradeEvent from pre-decoded event data.
+#[inline]
+pub fn parse_trade_from_data(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
+    let pool_state = read_pubkey(data, 0)?;
+    let amount_in = read_u64_le(data, 88)?;
+    let amount_out = read_u64_le(data, 96)?;
+    let trade_direction = *data.get(136)?;
+    let exact_in = read_bool(data, 138)?;
+    let is_buy = trade_direction == 0;
 
     Some(DexEvent::BonkTrade(BonkTradeEvent {
         metadata,
         pool_state,
-        user,
+        user: Pubkey::default(),
         amount_in,
         amount_out,
         is_buy,
@@ -110,213 +78,46 @@ fn parse_trade_event(
     }))
 }
 
-/// 解析池创建事件
-fn parse_pool_create_event(
-    data: &[u8],
-    signature: Signature,
-    slot: u64,
-    tx_index: u64,
-    block_time_us: Option<i64>,
-    grpc_recv_us: i64,
-) -> Option<DexEvent> {
-    let mut offset = 0;
-
+/// Parse Raydium Launchpad PoolCreateEvent from pre-decoded event data.
+#[inline]
+pub fn parse_pool_create_from_data(data: &[u8], metadata: EventMetadata) -> Option<DexEvent> {
+    let mut offset = 0usize;
     let pool_state = read_pubkey(data, offset)?;
     offset += 32;
-
-    let _token_a_mint = read_pubkey(data, offset)?;
-    offset += 32;
-
-    let _token_b_mint = read_pubkey(data, offset)?;
-    offset += 32;
-
     let creator = read_pubkey(data, offset)?;
     offset += 32;
-
-    let _initial_liquidity_a = read_u64_le(data, offset)?;
-    offset += 8;
-
-    let _initial_liquidity_b = read_u64_le(data, offset)?;
-
-    let metadata =
-        create_metadata_simple(signature, slot, tx_index, block_time_us, pool_state, grpc_recv_us);
+    let _config = read_pubkey(data, offset)?;
+    offset += 32;
+    let base_mint_param = parse_mint_params(data, &mut offset)?;
 
     Some(DexEvent::BonkPoolCreate(BonkPoolCreateEvent {
         metadata,
-        base_mint_param: BaseMintParam {
-            symbol: "BONK".to_string(),
-            name: "Bonk Pool".to_string(),
-            uri: "https://bonk.com".to_string(),
-            decimals: 5,
-        },
+        base_mint_param,
         pool_state,
         creator,
     }))
 }
 
-/// 解析 AMM 迁移事件
-fn parse_migrate_amm_event(
-    data: &[u8],
-    signature: Signature,
-    slot: u64,
-    tx_index: u64,
-    block_time_us: Option<i64>,
-    grpc_recv_us: i64,
-) -> Option<DexEvent> {
-    let mut offset = 0;
-
-    let old_pool = read_pubkey(data, offset)?;
-    offset += 32;
-
-    let new_pool = read_pubkey(data, offset)?;
-    offset += 32;
-
-    let user = read_pubkey(data, offset)?;
-    offset += 32;
-
-    let liquidity_amount = read_u64_le(data, offset)?;
-
-    let metadata =
-        create_metadata_simple(signature, slot, tx_index, block_time_us, old_pool, grpc_recv_us);
-
-    Some(DexEvent::BonkMigrateAmm(BonkMigrateAmmEvent {
-        metadata,
-        old_pool,
-        new_pool,
-        user,
-        liquidity_amount,
-    }))
+fn parse_mint_params(data: &[u8], offset: &mut usize) -> Option<BaseMintParam> {
+    let decimals = *data.get(*offset)?;
+    *offset += 1;
+    let name = read_borsh_string(data, offset)?;
+    let symbol = read_borsh_string(data, offset)?;
+    let uri = read_borsh_string(data, offset)?;
+    Some(BaseMintParam { symbol, name, uri, decimals })
 }
 
-/// 文本回退解析
-fn parse_text_log(
-    tx_index: u64,
-    log: &str,
-    signature: Signature,
-    slot: u64,
-    block_time_us: Option<i64>,
-    grpc_recv_us: i64,
-) -> Option<DexEvent> {
-    use super::utils::text_parser::*;
-
-    if log.contains("trade") || log.contains("swap") {
-        return parse_trade_from_text(tx_index, log, signature, slot, block_time_us, grpc_recv_us);
-    }
-
-    if log.contains("pool") && log.contains("create") {
-        return parse_pool_create_from_text(
-            tx_index,
-            log,
-            signature,
-            slot,
-            block_time_us,
-            grpc_recv_us,
-        );
-    }
-
-    if log.contains("migrate") {
-        return parse_migrate_from_text(
-            tx_index,
-            log,
-            signature,
-            slot,
-            block_time_us,
-            grpc_recv_us,
-        );
-    }
-
-    None
+fn read_borsh_string(data: &[u8], offset: &mut usize) -> Option<String> {
+    let len = read_u32_le(data, *offset)? as usize;
+    *offset += 4;
+    let end = (*offset).checked_add(len)?;
+    let bytes = data.get(*offset..end)?;
+    *offset = end;
+    std::str::from_utf8(bytes).ok().map(str::to_owned)
 }
 
-/// 从文本解析交易事件
-fn parse_trade_from_text(
-    tx_index: u64,
-    log: &str,
-    signature: Signature,
-    slot: u64,
-    block_time_us: Option<i64>,
-    grpc_recv_us: i64,
-) -> Option<DexEvent> {
-    use super::utils::text_parser::*;
-
-    let metadata = create_metadata_simple(
-        signature,
-        slot,
-        tx_index,
-        block_time_us,
-        Pubkey::default(),
-        grpc_recv_us,
-    );
-    let is_buy = detect_trade_type(log).unwrap_or(true);
-
-    Some(DexEvent::BonkTrade(BonkTradeEvent {
-        metadata,
-        pool_state: Pubkey::default(),
-        user: Pubkey::default(),
-        amount_in: extract_number_from_text(log, "amount_in").unwrap_or(1000000),
-        amount_out: extract_number_from_text(log, "amount_out").unwrap_or(950000),
-        is_buy,
-        trade_direction: if is_buy { TradeDirection::Buy } else { TradeDirection::Sell },
-        exact_in: true,
-    }))
-}
-
-/// 从文本解析池创建事件
-fn parse_pool_create_from_text(
-    tx_index: u64,
-    log: &str,
-    signature: Signature,
-    slot: u64,
-    block_time_us: Option<i64>,
-    grpc_recv_us: i64,
-) -> Option<DexEvent> {
-    let metadata = create_metadata_simple(
-        signature,
-        slot,
-        tx_index,
-        block_time_us,
-        Pubkey::default(),
-        grpc_recv_us,
-    );
-
-    Some(DexEvent::BonkPoolCreate(BonkPoolCreateEvent {
-        metadata,
-        base_mint_param: BaseMintParam {
-            symbol: "BONK".to_string(),
-            name: "Bonk Pool".to_string(),
-            uri: "https://bonk.com".to_string(),
-            decimals: 5,
-        },
-        pool_state: Pubkey::default(),
-        creator: Pubkey::default(),
-    }))
-}
-
-/// 从文本解析迁移事件
-fn parse_migrate_from_text(
-    tx_index: u64,
-    log: &str,
-    signature: Signature,
-    slot: u64,
-    block_time_us: Option<i64>,
-    grpc_recv_us: i64,
-) -> Option<DexEvent> {
-    use super::utils::text_parser::*;
-
-    let metadata = create_metadata_simple(
-        signature,
-        slot,
-        tx_index,
-        block_time_us,
-        Pubkey::default(),
-        grpc_recv_us,
-    );
-
-    Some(DexEvent::BonkMigrateAmm(BonkMigrateAmmEvent {
-        metadata,
-        old_pool: Pubkey::default(),
-        new_pool: Pubkey::default(),
-        user: Pubkey::default(),
-        liquidity_amount: extract_number_from_text(log, "liquidity").unwrap_or(0),
-    }))
+#[inline]
+fn read_u32_le(data: &[u8], offset: usize) -> Option<u32> {
+    let bytes = data.get(offset..offset + 4)?;
+    Some(u32::from_le_bytes(bytes.try_into().ok()?))
 }

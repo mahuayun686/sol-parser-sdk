@@ -78,6 +78,38 @@ pub fn parse_log(
     )
 }
 
+/// Program-aware log parser for gRPC/RPC transaction logs.
+///
+/// Solana `Program data:` lines do not include the program id. Passing the
+/// current invoke stack's program id prevents cross-protocol discriminator
+/// collisions from being misparsed.
+#[inline(always)]
+pub fn parse_log_with_program_id(
+    log: &str,
+    signature: Signature,
+    slot: u64,
+    tx_index: u64,
+    block_time_us: Option<i64>,
+    grpc_recv_us: i64,
+    event_type_filter: Option<&crate::grpc::types::EventTypeFilter>,
+    is_created_buy: bool,
+    recent_blockhash: Option<&[u8]>,
+    program_id: Option<&solana_sdk::pubkey::Pubkey>,
+) -> Option<DexEvent> {
+    optimized_matcher::parse_log_optimized_with_program_id(
+        log,
+        signature,
+        slot,
+        tx_index,
+        block_time_us,
+        grpc_recv_us,
+        event_type_filter,
+        is_created_buy,
+        recent_blockhash,
+        program_id,
+    )
+}
+
 /// 统一的日志解析入口函数（优化版本）
 #[inline(always)] // 零延迟优化：内联热路径
 pub fn parse_log_unified(

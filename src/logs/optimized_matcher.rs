@@ -10,8 +10,10 @@
 use super::perf_hints::{likely, unlikely};
 use crate::core::events::{DexEvent, EventMetadata};
 use crate::grpc::types::{EventType, EventTypeFilter};
+use crate::instr::program_ids;
 use memchr::memmem;
 use once_cell::sync::Lazy;
+use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
 
 /// SIMD 优化的字符串查找器 - 预编译一次，重复使用
@@ -20,11 +22,11 @@ static PUMPFUN_FINDER: Lazy<memmem::Finder> =
 static RAYDIUM_AMM_FINDER: Lazy<memmem::Finder> =
     Lazy::new(|| memmem::Finder::new(b"675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"));
 static RAYDIUM_CLMM_FINDER: Lazy<memmem::Finder> =
-    Lazy::new(|| memmem::Finder::new(b"CAMMCzo5YL8w4VFF8KVHrK22GGUQpMdRBFSzKNT3t4ivN6"));
+    Lazy::new(|| memmem::Finder::new(b"CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK"));
 static RAYDIUM_CPMM_FINDER: Lazy<memmem::Finder> =
-    Lazy::new(|| memmem::Finder::new(b"CPMDWBwJDtYax9qKcQP3CtKz7tHjJsN3H8hGrYVD9mZD"));
+    Lazy::new(|| memmem::Finder::new(b"CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C"));
 static BONK_FINDER: Lazy<memmem::Finder> =
-    Lazy::new(|| memmem::Finder::new(b"Bxby5A7E8xPDGGc3FyJw7m5eK5aqNVLU83H2zLTQDH1b"));
+    Lazy::new(|| memmem::Finder::new(b"LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj"));
 static PROGRAM_FINDER: Lazy<memmem::Finder> = Lazy::new(|| memmem::Finder::new(b"Program"));
 static PROGRAM_DATA_FINDER: Lazy<memmem::Finder> =
     Lazy::new(|| memmem::Finder::new(b"Program data: "));
@@ -43,21 +45,21 @@ pub mod program_id_strings {
     pub const PUMPFUN_SUCCESS: &str = "Program 6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P success";
     pub const PUMPFUN_ID: &str = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 
-    pub const BONK_INVOKE: &str = "Program Bxby5A7E8xPDGGc3FyJw7m5eK5aqNVLU83H2zLTQDH1b invoke";
-    pub const BONK_SUCCESS: &str = "Program Bxby5A7E8xPDGGc3FyJw7m5eK5aqNVLU83H2zLTQDH1b success";
-    pub const BONK_ID: &str = "Bxby5A7E8xPDGGc3FyJw7m5eK5aqNVLU83H2zLTQDH1b";
+    pub const BONK_INVOKE: &str = "Program LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj invoke";
+    pub const BONK_SUCCESS: &str = "Program LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj success";
+    pub const BONK_ID: &str = "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj";
 
     pub const RAYDIUM_CLMM_INVOKE: &str =
-        "Program CAMMCzo5YL8w4VFF8KVHrK22GGUQpMdRBFSzKNT3t4ivN6 invoke";
+        "Program CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK invoke";
     pub const RAYDIUM_CLMM_SUCCESS: &str =
-        "Program CAMMCzo5YL8w4VFF8KVHrK22GGUQpMdRBFSzKNT3t4ivN6 success";
-    pub const RAYDIUM_CLMM_ID: &str = "CAMMCzo5YL8w4VFF8KVHrK22GGUQpMdRBFSzKNT3t4ivN6";
+        "Program CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK success";
+    pub const RAYDIUM_CLMM_ID: &str = "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK";
 
     pub const RAYDIUM_CPMM_INVOKE: &str =
-        "Program CPMDWBwJDtYax9qKcQP3CtKz7tHjJsN3H8hGrYVD9mZD invoke";
+        "Program CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C invoke";
     pub const RAYDIUM_CPMM_SUCCESS: &str =
-        "Program CPMDWBwJDtYax9qKcQP3CtKz7tHjJsN3H8hGrYVD9mZD success";
-    pub const RAYDIUM_CPMM_ID: &str = "CPMDWBwJDtYax9qKcQP3CtKz7tHjJsN3H8hGrYVD9mZD";
+        "Program CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C success";
+    pub const RAYDIUM_CPMM_ID: &str = "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C";
 
     pub const RAYDIUM_AMM_V4_ID: &str = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
 
@@ -174,6 +176,13 @@ mod discriminators {
     pub const PUMPFUN_MIGRATE: u64 = u64::from_le_bytes([189, 233, 93, 185, 92, 148, 234, 148]);
     pub const PUMPFUN_MIGRATE_BONDING_CURVE_CREATOR: u64 =
         u64::from_le_bytes([155, 167, 104, 220, 213, 108, 243, 3]);
+    // Raydium Launchpad event discriminators. `TRADE` intentionally equals
+    // PumpFun's TradeEvent discriminator, so gRPC must route logs with program
+    // context instead of discriminator alone.
+    pub const RAYDIUM_LAUNCHPAD_POOL_CREATE: u64 =
+        u64::from_le_bytes([151, 215, 226, 9, 118, 161, 115, 174]);
+    pub const RAYDIUM_LAUNCHPAD_TRADE: u64 =
+        u64::from_le_bytes([189, 219, 127, 211, 78, 230, 97, 238]);
     // Pump fees (`idls/pump_fees.json` event discriminators)
     pub const PUMP_FEES_CREATE_FEE_SHARING_CONFIG: u64 =
         u64::from_le_bytes([133, 105, 170, 200, 184, 116, 251, 88]);
@@ -306,6 +315,65 @@ pub fn parse_log_optimized(
     is_created_buy: bool,
     recent_blockhash: Option<&[u8]>,
 ) -> Option<DexEvent> {
+    parse_log_optimized_inner(
+        log,
+        signature,
+        slot,
+        tx_index,
+        block_time_us,
+        grpc_recv_us,
+        event_type_filter,
+        is_created_buy,
+        recent_blockhash,
+        None,
+    )
+}
+
+/// Program-aware log parser for gRPC/RPC transaction logs.
+///
+/// `Program data:` lines do not carry the emitting program id. The caller should
+/// pass the current invoke stack's program id so discriminators shared by
+/// multiple Anchor programs are routed correctly.
+#[inline(always)]
+pub fn parse_log_optimized_with_program_id(
+    log: &str,
+    signature: Signature,
+    slot: u64,
+    tx_index: u64,
+    block_time_us: Option<i64>,
+    grpc_recv_us: i64,
+    event_type_filter: Option<&EventTypeFilter>,
+    is_created_buy: bool,
+    recent_blockhash: Option<&[u8]>,
+    program_id: Option<&Pubkey>,
+) -> Option<DexEvent> {
+    parse_log_optimized_inner(
+        log,
+        signature,
+        slot,
+        tx_index,
+        block_time_us,
+        grpc_recv_us,
+        event_type_filter,
+        is_created_buy,
+        recent_blockhash,
+        program_id,
+    )
+}
+
+#[inline(always)]
+fn parse_log_optimized_inner(
+    log: &str,
+    signature: Signature,
+    slot: u64,
+    tx_index: u64,
+    block_time_us: Option<i64>,
+    grpc_recv_us: i64,
+    event_type_filter: Option<&EventTypeFilter>,
+    is_created_buy: bool,
+    recent_blockhash: Option<&[u8]>,
+    program_id: Option<&Pubkey>,
+) -> Option<DexEvent> {
     // Step 1: Find "Program data: " prefix using SIMD
     let log_bytes = log.as_bytes();
     let pos = PROGRAM_DATA_FINDER.find(log_bytes)?;
@@ -348,42 +416,44 @@ pub fn parse_log_optimized(
     let event_type = discriminator_to_event_type(discriminator);
 
     // Step 5: Early filter check - BEFORE parsing any fields!
-    if let Some(filter) = event_type_filter {
-        if let Some(et) = event_type {
-            if !filter.should_include(et) {
-                return None; // Skip ALL parsing - saves ~200-500ns
-            }
-        } else {
-            // Unknown discriminator - check if any supported protocol is wanted
-            if let Some(ref include_only) = filter.include_only {
-                let wants_supported = include_only.iter().any(|t| {
-                    matches!(
-                        t,
-                        EventType::PumpFunTrade
-                            | EventType::PumpFunCreate
-                            | EventType::PumpFunMigrate
-                            | EventType::PumpFunBuy
-                            | EventType::PumpFunSell
-                            | EventType::PumpFunBuyExactSolIn
-                            | EventType::PumpFunMigrateBondingCurveCreator
-                            | EventType::PumpFeesCreateFeeSharingConfig
-                            | EventType::PumpFeesInitializeFeeConfig
-                            | EventType::PumpFeesResetFeeSharingConfig
-                            | EventType::PumpFeesRevokeFeeSharingAuthority
-                            | EventType::PumpFeesTransferFeeSharingAuthority
-                            | EventType::PumpFeesUpdateAdmin
-                            | EventType::PumpFeesUpdateFeeConfig
-                            | EventType::PumpFeesUpdateFeeShares
-                            | EventType::PumpFeesUpsertFeeTiers
-                            | EventType::PumpSwapBuy
-                            | EventType::PumpSwapSell
-                            | EventType::PumpSwapCreatePool
-                            | EventType::PumpSwapLiquidityAdded
-                            | EventType::PumpSwapLiquidityRemoved
-                    )
-                });
-                if !wants_supported {
-                    return None;
+    if program_id.is_none() {
+        if let Some(filter) = event_type_filter {
+            if let Some(et) = event_type {
+                if !filter.should_include(et) {
+                    return None; // Skip ALL parsing - saves ~200-500ns
+                }
+            } else {
+                // Unknown discriminator - check if any supported protocol is wanted
+                if let Some(ref include_only) = filter.include_only {
+                    let wants_supported = include_only.iter().any(|t| {
+                        matches!(
+                            t,
+                            EventType::PumpFunTrade
+                                | EventType::PumpFunCreate
+                                | EventType::PumpFunMigrate
+                                | EventType::PumpFunBuy
+                                | EventType::PumpFunSell
+                                | EventType::PumpFunBuyExactSolIn
+                                | EventType::PumpFunMigrateBondingCurveCreator
+                                | EventType::PumpFeesCreateFeeSharingConfig
+                                | EventType::PumpFeesInitializeFeeConfig
+                                | EventType::PumpFeesResetFeeSharingConfig
+                                | EventType::PumpFeesRevokeFeeSharingAuthority
+                                | EventType::PumpFeesTransferFeeSharingAuthority
+                                | EventType::PumpFeesUpdateAdmin
+                                | EventType::PumpFeesUpdateFeeConfig
+                                | EventType::PumpFeesUpdateFeeShares
+                                | EventType::PumpFeesUpsertFeeTiers
+                                | EventType::PumpSwapBuy
+                                | EventType::PumpSwapSell
+                                | EventType::PumpSwapCreatePool
+                                | EventType::PumpSwapLiquidityAdded
+                                | EventType::PumpSwapLiquidityRemoved
+                        )
+                    });
+                    if !wants_supported {
+                        return None;
+                    }
                 }
             }
         }
@@ -402,6 +472,23 @@ pub fn parse_log_optimized(
         grpc_recv_us,
         recent_blockhash: recent_blockhash.map(|s| bs58::encode(s).into_string()),
     };
+
+    if let Some(program_id) = program_id {
+        return parse_program_scoped_event(
+            program_id,
+            discriminator,
+            data,
+            metadata,
+            log,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+            grpc_recv_us,
+            event_type_filter,
+            is_created_buy,
+        );
+    }
 
     // ========================================================================
     // Hot-path optimization: Fast check for top 5 most common discriminators
@@ -643,6 +730,319 @@ pub fn parse_log_optimized(
     }
 }
 
+#[inline(always)]
+fn filter_allows_untyped_protocol(event_type_filter: Option<&EventTypeFilter>) -> bool {
+    event_type_filter.and_then(|f| f.include_only.as_ref()).is_none()
+}
+
+#[inline(always)]
+fn parse_program_scoped_event(
+    program_id: &Pubkey,
+    discriminator: u64,
+    data: &[u8],
+    metadata: EventMetadata,
+    log: &str,
+    signature: Signature,
+    slot: u64,
+    tx_index: u64,
+    block_time_us: Option<i64>,
+    grpc_recv_us: i64,
+    event_type_filter: Option<&EventTypeFilter>,
+    is_created_buy: bool,
+) -> Option<DexEvent> {
+    match *program_id {
+        program_ids::PUMPFUN_PROGRAM_ID => {
+            if let Some(filter) = event_type_filter {
+                if !filter.includes_pumpfun() {
+                    return None;
+                }
+            }
+            match discriminator {
+                discriminators::PUMPFUN_TRADE => {
+                    let event =
+                        crate::logs::pump::parse_trade_from_data(data, metadata, is_created_buy)?;
+                    filter_pumpfun_trade_variant(event, event_type_filter)
+                }
+                discriminators::PUMPFUN_CREATE => {
+                    crate::logs::pump::parse_create_from_data(data, metadata)
+                }
+                discriminators::PUMPFUN_MIGRATE => {
+                    crate::logs::pump::parse_migrate_from_data(data, metadata)
+                }
+                discriminators::PUMPFUN_MIGRATE_BONDING_CURVE_CREATOR => {
+                    crate::logs::pump::parse_migrate_bonding_curve_creator_from_data(data, metadata)
+                }
+                _ => None,
+            }
+        }
+        program_ids::PUMP_FEES_PROGRAM_ID => {
+            if let Some(filter) = event_type_filter {
+                if !filter.includes_pump_fees() {
+                    return None;
+                }
+            }
+            match discriminator {
+                discriminators::PUMP_FEES_CREATE_FEE_SHARING_CONFIG => {
+                    crate::logs::pump_fees::parse_create_fee_sharing_config_from_data(
+                        data, metadata,
+                    )
+                }
+                discriminators::PUMP_FEES_INITIALIZE_FEE_CONFIG => {
+                    crate::logs::pump_fees::parse_initialize_fee_config_from_data(data, metadata)
+                }
+                discriminators::PUMP_FEES_RESET_FEE_SHARING_CONFIG => {
+                    crate::logs::pump_fees::parse_reset_fee_sharing_config_from_data(data, metadata)
+                }
+                discriminators::PUMP_FEES_REVOKE_FEE_SHARING_AUTHORITY => {
+                    crate::logs::pump_fees::parse_revoke_fee_sharing_authority_from_data(
+                        data, metadata,
+                    )
+                }
+                discriminators::PUMP_FEES_TRANSFER_FEE_SHARING_AUTHORITY => {
+                    crate::logs::pump_fees::parse_transfer_fee_sharing_authority_from_data(
+                        data, metadata,
+                    )
+                }
+                discriminators::PUMP_FEES_UPDATE_ADMIN => {
+                    crate::logs::pump_fees::parse_update_admin_from_data(data, metadata)
+                }
+                discriminators::PUMP_FEES_UPDATE_FEE_CONFIG => {
+                    crate::logs::pump_fees::parse_update_fee_config_from_data(data, metadata)
+                }
+                discriminators::PUMP_FEES_UPDATE_FEE_SHARES => {
+                    crate::logs::pump_fees::parse_update_fee_shares_from_data(data, metadata)
+                }
+                discriminators::PUMP_FEES_UPSERT_FEE_TIERS => {
+                    crate::logs::pump_fees::parse_upsert_fee_tiers_from_data(data, metadata)
+                }
+                _ => None,
+            }
+        }
+        program_ids::PUMPSWAP_PROGRAM_ID => {
+            if let Some(filter) = event_type_filter {
+                if !filter.includes_pumpswap() {
+                    return None;
+                }
+            }
+            match discriminator {
+                discriminators::PUMPSWAP_BUY => {
+                    crate::logs::pump_amm::parse_buy_from_data(data, metadata)
+                }
+                discriminators::PUMPSWAP_SELL => {
+                    crate::logs::pump_amm::parse_sell_from_data(data, metadata)
+                }
+                discriminators::PUMPSWAP_CREATE_POOL => {
+                    crate::logs::pump_amm::parse_create_pool_from_data(data, metadata)
+                }
+                discriminators::PUMPSWAP_ADD_LIQUIDITY => {
+                    crate::logs::pump_amm::parse_add_liquidity_from_data(data, metadata)
+                }
+                discriminators::PUMPSWAP_REMOVE_LIQUIDITY => {
+                    crate::logs::pump_amm::parse_remove_liquidity_from_data(data, metadata)
+                }
+                _ => None,
+            }
+        }
+        program_ids::BONK_PROGRAM_ID => {
+            if let Some(filter) = event_type_filter {
+                if !filter.includes_raydium_launchpad() {
+                    return None;
+                }
+            }
+            match discriminator {
+                discriminators::RAYDIUM_LAUNCHPAD_TRADE => {
+                    crate::logs::raydium_launchpad::parse_trade_from_data(data, metadata)
+                }
+                discriminators::RAYDIUM_LAUNCHPAD_POOL_CREATE => {
+                    crate::logs::raydium_launchpad::parse_pool_create_from_data(data, metadata)
+                }
+                _ => None,
+            }
+        }
+        program_ids::RAYDIUM_CLMM_PROGRAM_ID => {
+            if !filter_allows_untyped_protocol(event_type_filter) {
+                return None;
+            }
+            match discriminator {
+                discriminators::RAYDIUM_CLMM_SWAP => {
+                    crate::logs::raydium_clmm::parse_swap_from_data(data, metadata)
+                }
+                discriminators::RAYDIUM_CLMM_INCREASE_LIQUIDITY => {
+                    crate::logs::raydium_clmm::parse_increase_liquidity_from_data(data, metadata)
+                }
+                discriminators::RAYDIUM_CLMM_DECREASE_LIQUIDITY => {
+                    crate::logs::raydium_clmm::parse_decrease_liquidity_from_data(data, metadata)
+                }
+                discriminators::RAYDIUM_CLMM_CREATE_POOL => {
+                    crate::logs::raydium_clmm::parse_create_pool_from_data(data, metadata)
+                }
+                discriminators::RAYDIUM_CLMM_COLLECT_FEE => {
+                    crate::logs::raydium_clmm::parse_collect_fee_from_data(data, metadata)
+                }
+                _ => None,
+            }
+        }
+        program_ids::RAYDIUM_CPMM_PROGRAM_ID => {
+            if !filter_allows_untyped_protocol(event_type_filter) {
+                return None;
+            }
+            match discriminator {
+                discriminators::RAYDIUM_CPMM_SWAP_BASE_IN => {
+                    crate::logs::raydium_cpmm::parse_swap_base_in_from_data(data, metadata)
+                }
+                discriminators::RAYDIUM_CPMM_SWAP_BASE_OUT => {
+                    crate::logs::raydium_cpmm::parse_swap_base_out_from_data(data, metadata)
+                }
+                discriminators::RAYDIUM_CPMM_CREATE_POOL => {
+                    crate::logs::raydium_cpmm::parse_create_pool_from_data(data, metadata)
+                }
+                discriminators::RAYDIUM_CPMM_DEPOSIT => {
+                    crate::logs::raydium_cpmm::parse_deposit_from_data(data, metadata)
+                }
+                discriminators::RAYDIUM_CPMM_WITHDRAW => {
+                    crate::logs::raydium_cpmm::parse_withdraw_from_data(data, metadata)
+                }
+                _ => None,
+            }
+        }
+        program_ids::RAYDIUM_AMM_V4_PROGRAM_ID => {
+            if !filter_allows_untyped_protocol(event_type_filter) {
+                return None;
+            }
+            match discriminator {
+                discriminators::RAYDIUM_AMM_SWAP_BASE_IN => {
+                    crate::logs::raydium_amm::parse_swap_base_in_from_data(data, metadata)
+                }
+                discriminators::RAYDIUM_AMM_SWAP_BASE_OUT => {
+                    crate::logs::raydium_amm::parse_swap_base_out_from_data(data, metadata)
+                }
+                discriminators::RAYDIUM_AMM_DEPOSIT => {
+                    crate::logs::raydium_amm::parse_deposit_from_data(data, metadata)
+                }
+                discriminators::RAYDIUM_AMM_WITHDRAW => {
+                    crate::logs::raydium_amm::parse_withdraw_from_data(data, metadata)
+                }
+                discriminators::RAYDIUM_AMM_INITIALIZE2 => {
+                    crate::logs::raydium_amm::parse_initialize2_from_data(data, metadata)
+                }
+                _ => None,
+            }
+        }
+        program_ids::ORCA_WHIRLPOOL_PROGRAM_ID => {
+            if !filter_allows_untyped_protocol(event_type_filter) {
+                return None;
+            }
+            match discriminator {
+                discriminators::ORCA_TRADED => {
+                    crate::logs::orca_whirlpool::parse_traded_from_data(data, metadata)
+                }
+                discriminators::ORCA_LIQUIDITY_INCREASED => {
+                    crate::logs::orca_whirlpool::parse_liquidity_increased_from_data(data, metadata)
+                }
+                discriminators::ORCA_LIQUIDITY_DECREASED => {
+                    crate::logs::orca_whirlpool::parse_liquidity_decreased_from_data(data, metadata)
+                }
+                discriminators::ORCA_POOL_INITIALIZED => {
+                    crate::logs::orca_whirlpool::parse_pool_initialized_from_data(data, metadata)
+                }
+                _ => None,
+            }
+        }
+        program_ids::METEORA_POOLS_PROGRAM_ID => {
+            if !filter_allows_untyped_protocol(event_type_filter) {
+                return None;
+            }
+            match discriminator {
+                discriminators::METEORA_AMM_SWAP => {
+                    crate::logs::meteora_amm::parse_swap_from_data(data, metadata)
+                }
+                discriminators::METEORA_AMM_ADD_LIQUIDITY => {
+                    crate::logs::meteora_amm::parse_add_liquidity_from_data(data, metadata)
+                }
+                discriminators::METEORA_AMM_REMOVE_LIQUIDITY => {
+                    crate::logs::meteora_amm::parse_remove_liquidity_from_data(data, metadata)
+                }
+                discriminators::METEORA_AMM_BOOTSTRAP_LIQUIDITY => {
+                    crate::logs::meteora_amm::parse_bootstrap_liquidity_from_data(data, metadata)
+                }
+                discriminators::METEORA_AMM_POOL_CREATED => {
+                    crate::logs::meteora_amm::parse_pool_created_from_data(data, metadata)
+                }
+                _ => None,
+            }
+        }
+        program_ids::METEORA_DAMM_V2_PROGRAM_ID => {
+            if let Some(filter) = event_type_filter {
+                if !filter.includes_meteora_damm_v2() {
+                    return None;
+                }
+            }
+            crate::logs::parse_meteora_damm_log(
+                log,
+                signature,
+                slot,
+                tx_index,
+                block_time_us,
+                grpc_recv_us,
+            )
+        }
+        program_ids::METEORA_DLMM_PROGRAM_ID => {
+            if !filter_allows_untyped_protocol(event_type_filter) {
+                return None;
+            }
+            crate::logs::parse_meteora_dlmm_log(
+                log,
+                signature,
+                slot,
+                tx_index,
+                block_time_us,
+                grpc_recv_us,
+            )
+        }
+        _ => None,
+    }
+}
+
+#[inline(always)]
+fn filter_pumpfun_trade_variant(
+    event: DexEvent,
+    event_type_filter: Option<&EventTypeFilter>,
+) -> Option<DexEvent> {
+    if let Some(filter) = event_type_filter {
+        if let Some(ref include_only) = filter.include_only {
+            let has_specific_filter = include_only.iter().any(|t| {
+                matches!(
+                    t,
+                    EventType::PumpFunBuy
+                        | EventType::PumpFunSell
+                        | EventType::PumpFunBuyExactSolIn
+                        | EventType::PumpFunCreate
+                        | EventType::PumpFunCreateV2
+                )
+            });
+            if has_specific_filter {
+                let event_type_matches = match &event {
+                    DexEvent::PumpFunBuy(_) => include_only.contains(&EventType::PumpFunBuy),
+                    DexEvent::PumpFunSell(_) => include_only.contains(&EventType::PumpFunSell),
+                    DexEvent::PumpFunBuyExactSolIn(_) => {
+                        include_only.contains(&EventType::PumpFunBuyExactSolIn)
+                    }
+                    DexEvent::PumpFunTrade(_) => include_only.contains(&EventType::PumpFunTrade),
+                    DexEvent::PumpFunCreate(_) => include_only.contains(&EventType::PumpFunCreate),
+                    DexEvent::PumpFunCreateV2(_) => {
+                        include_only.contains(&EventType::PumpFunCreateV2)
+                    }
+                    _ => false,
+                };
+                if !event_type_matches {
+                    return None;
+                }
+            }
+        }
+    }
+    Some(event)
+}
+
 /// Map discriminator to EventType (compile-time optimized match)
 #[inline(always)]
 fn discriminator_to_event_type(discriminator: u64) -> Option<EventType> {
@@ -734,4 +1134,81 @@ pub fn parse_invoke_info(log: &str) -> Option<(&str, usize)> {
     let program_id = std::str::from_utf8(&log_bytes[program_start..program_end]).ok()?;
 
     Some((program_id, depth))
+}
+
+/// Parse `Program <id> success` or `Program <id> failed: ...` completion lines.
+#[inline]
+pub fn parse_program_complete_info(log: &str) -> Option<&str> {
+    let rest = log.strip_prefix("Program ")?;
+    if let Some(pos) = rest.find(" success") {
+        return Some(&rest[..pos]);
+    }
+    if let Some(pos) = rest.find(" failed:") {
+        return Some(&rest[..pos]);
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    use solana_sdk::{pubkey::Pubkey, signature::Signature};
+
+    #[test]
+    fn program_scoped_launchpad_trade_is_not_parsed_as_pumpfun() {
+        let pool = Pubkey::new_unique();
+        let mut raw = Vec::new();
+        raw.extend_from_slice(&discriminators::RAYDIUM_LAUNCHPAD_TRADE.to_le_bytes());
+        raw.extend_from_slice(pool.as_ref());
+        for value in 0u64..13 {
+            raw.extend_from_slice(&(100 + value).to_le_bytes());
+        }
+        raw.push(1); // TradeDirection::Sell
+        raw.push(2); // PoolStatus::Trade
+        raw.push(1); // exact_in
+
+        let log = format!("Program data: {}", STANDARD.encode(raw));
+        let filter = EventTypeFilter::include_only(vec![EventType::BonkTrade]);
+        let event = parse_log_optimized_with_program_id(
+            &log,
+            Signature::default(),
+            1,
+            2,
+            Some(3),
+            4,
+            Some(&filter),
+            false,
+            None,
+            Some(&program_ids::BONK_PROGRAM_ID),
+        )
+        .expect("launchpad trade should parse");
+
+        match event {
+            DexEvent::BonkTrade(trade) => {
+                assert_eq!(trade.pool_state, pool);
+                assert_eq!(trade.amount_in, 107);
+                assert_eq!(trade.amount_out, 108);
+                assert!(!trade.is_buy);
+                assert!(trade.exact_in);
+            }
+            other => panic!("expected BonkTrade, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn completion_parser_extracts_program_id() {
+        assert_eq!(
+            parse_program_complete_info(
+                "Program LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj success"
+            ),
+            Some("LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj")
+        );
+        assert_eq!(
+            parse_program_complete_info(
+                "Program CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C failed: custom program error: 0x1"
+            ),
+            Some("CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C")
+        );
+    }
 }

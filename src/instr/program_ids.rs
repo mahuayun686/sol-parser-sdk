@@ -10,8 +10,11 @@ use solana_sdk::pubkey::Pubkey;
 /// PumpFun program ID as Pubkey constant
 pub const PUMPFUN_PROGRAM_ID: Pubkey = pubkey!("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P");
 
-/// Bonk program ID as Pubkey constant
-pub const BONK_PROGRAM_ID: Pubkey = pubkey!("DjVE6JNiYqPL2QXyCUUh8rNjHrbz9hXHNYt99MQ59qw1");
+/// Raydium LaunchLab / Launchpad program ID as Pubkey constant.
+///
+/// The SDK keeps the historical Bonk event names for compatibility, but this
+/// parser routes the Raydium Launchpad IDL (`idl/raydium_launchpad.json`).
+pub const BONK_PROGRAM_ID: Pubkey = pubkey!("LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj");
 
 /// PumpSwap program ID as Pubkey constant
 pub const PUMPSWAP_PROGRAM_ID: Pubkey = pubkey!("pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA");
@@ -20,8 +23,7 @@ pub const PUMPSWAP_PROGRAM_ID: Pubkey = pubkey!("pAMMBay6oceH9fJKBRHGP5D4bD4sWpm
 pub const PUMP_FEES_PROGRAM_ID: Pubkey = pubkey!("pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ");
 
 /// Raydium CLMM program ID as Pubkey constant
-/// Note: Original string was too long, using corrected version
-pub const RAYDIUM_CLMM_PROGRAM_ID: Pubkey = pubkey!("CAMMCzo5YL8w4VFF8KVHrK22GGUQpMDdHFWF5LCATdCR");
+pub const RAYDIUM_CLMM_PROGRAM_ID: Pubkey = pubkey!("CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK");
 
 /// Raydium CPMM program ID as Pubkey constant
 pub const RAYDIUM_CPMM_PROGRAM_ID: Pubkey = pubkey!("CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C");

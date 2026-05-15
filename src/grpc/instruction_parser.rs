@@ -182,10 +182,9 @@ fn parse_outer_instruction<'a>(
         let mut stack = [Pubkey::default(); STACK_CAP];
         let mut n = 0usize;
         for &idx in account_indices {
-            if let Some(k) = get_key(idx as usize) {
-                stack[n] = read_pubkey_fast(k);
-                n += 1;
-            }
+            let k = get_key(idx as usize)?;
+            stack[n] = read_pubkey_fast(k);
+            n += 1;
         }
         crate::instr::parse_instruction_unified(
             data,
@@ -201,8 +200,8 @@ fn parse_outer_instruction<'a>(
     } else {
         let accounts: Vec<Pubkey> = account_indices
             .iter()
-            .filter_map(|&idx| get_key(idx as usize).map(|k| read_pubkey_fast(k)))
-            .collect();
+            .map(|&idx| get_key(idx as usize).map(|k| read_pubkey_fast(k)))
+            .collect::<Option<_>>()?;
         crate::instr::parse_instruction_unified(
             data, &accounts, sig, slot, tx_idx, block_us, grpc_us, filter, program_id,
         )

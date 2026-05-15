@@ -16,6 +16,7 @@ use solana_transaction_status::{
     EncodedConfirmedTransactionWithStatusMeta, EncodedTransaction, UiTransactionEncoding,
 };
 use std::collections::HashMap;
+use std::str::FromStr;
 use yellowstone_grpc_proto::prelude::{
     CompiledInstruction, InnerInstruction, InnerInstructions, Message, MessageAddressTableLookup,
     MessageHeader, Transaction, TransactionStatusMeta,
@@ -157,10 +158,20 @@ pub fn parse_rpc_transaction(
     );
 
     // Parse logs (for protocols like PumpFun that emit events in logs)
-    let mut is_created_buy = false;
+    let needs_pumpfun = filter.map(|f| f.includes_pumpfun()).unwrap_or(true);
+    let is_created_buy = needs_pumpfun
+        && crate::logs::optimized_matcher::detect_pumpfun_create(&grpc_meta.log_messages);
+    let mut active_program_stack: Vec<Pubkey> = Vec::with_capacity(8);
 
     for log in &grpc_meta.log_messages {
-        if let Some(mut event) = crate::logs::parse_log(
+        if let Some((pid, depth)) = crate::logs::optimized_matcher::parse_invoke_info(log) {
+            if let Ok(pk) = Pubkey::from_str(pid) {
+                active_program_stack.truncate(depth.saturating_sub(1));
+                active_program_stack.push(pk);
+            }
+        }
+
+        if let Some(mut event) = crate::logs::parse_log_with_program_id(
             log,
             signature,
             slot,
@@ -170,12 +181,8 @@ pub fn parse_rpc_transaction(
             filter,
             is_created_buy,
             recent_blockhash.as_deref(),
+            active_program_stack.last(),
         ) {
-            // Check if this is a PumpFun create event to set is_created_buy flag
-            if matches!(event, DexEvent::PumpFunCreate(_) | DexEvent::PumpFunCreateV2(_)) {
-                is_created_buy = true;
-            }
-
             // Fill account fields - use same function as gRPC parsing
             crate::core::account_dispatcher::fill_accounts_with_owned_keys(
                 &mut event,
@@ -193,6 +200,14 @@ pub fn parse_rpc_transaction(
             );
 
             events.push(event);
+        }
+
+        if let Some(pid) = crate::logs::optimized_matcher::parse_program_complete_info(log) {
+            if let Ok(pk) = Pubkey::from_str(pid) {
+                if let Some(pos) = active_program_stack.iter().rposition(|active| *active == pk) {
+                    active_program_stack.truncate(pos);
+                }
+            }
         }
     }
 

@@ -528,6 +528,7 @@ fn parse_logs(
     let mut outer_idx: i32 = -1;
     let mut inner_idx: i32 = -1;
     let mut invokes: HashMap<Pubkey, Vec<(i32, i32)>> = HashMap::with_capacity(8);
+    let mut active_program_stack: Vec<Pubkey> = Vec::with_capacity(8);
     let mut result = Vec::with_capacity(4);
 
     for log in logs {
@@ -539,33 +540,43 @@ fn parse_logs(
                 inner_idx += 1;
             }
             if let Ok(pk) = Pubkey::from_str(pid) {
+                active_program_stack.truncate(depth.saturating_sub(1));
+                active_program_stack.push(pk);
                 invokes.entry(pk).or_default().push((outer_idx, inner_idx));
             }
         }
 
-        if PROGRAM_DATA_FINDER.find(log.as_bytes()).is_none() {
-            continue;
+        if PROGRAM_DATA_FINDER.find(log.as_bytes()).is_some() {
+            let current_program = active_program_stack.last();
+            if let Some(mut e) = crate::logs::parse_log_with_program_id(
+                log,
+                sig,
+                slot,
+                tx_idx,
+                block_us,
+                grpc_us,
+                filter,
+                has_create,
+                recent_blockhash.as_deref(),
+                current_program,
+            ) {
+                crate::core::account_dispatcher::fill_accounts_with_owned_keys(
+                    &mut e,
+                    meta,
+                    transaction,
+                    &invokes,
+                );
+                crate::core::common_filler::fill_data(&mut e, meta, transaction, &invokes);
+                result.push(e);
+            }
         }
 
-        if let Some(mut e) = crate::logs::parse_log(
-            log,
-            sig,
-            slot,
-            tx_idx,
-            block_us,
-            grpc_us,
-            filter,
-            has_create,
-            recent_blockhash.as_deref(),
-        ) {
-            crate::core::account_dispatcher::fill_accounts_with_owned_keys(
-                &mut e,
-                meta,
-                transaction,
-                &invokes,
-            );
-            crate::core::common_filler::fill_data(&mut e, meta, transaction, &invokes);
-            result.push(e);
+        if let Some(pid) = crate::logs::optimized_matcher::parse_program_complete_info(log) {
+            if let Ok(pk) = Pubkey::from_str(pid) {
+                if let Some(pos) = active_program_stack.iter().rposition(|active| *active == pk) {
+                    active_program_stack.truncate(pos);
+                }
+            }
         }
     }
     result

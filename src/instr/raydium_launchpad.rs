@@ -1,23 +1,30 @@
-//! Bonk 指令解析器
+//! Raydium Launchpad 指令解析器
 //!
-//! 使用 match discriminator 模式解析 Bonk 指令
+//! 事件类型名称沿用历史的 `Bonk*`，底层按 `idl/raydium_launchpad.json`
+//! 的真实 instruction discriminator 和账户布局解析。
 
 use super::program_ids;
 use super::utils::*;
 use crate::core::events::*;
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
 
-/// Bonk discriminator 常量
+/// Raydium Launchpad instruction discriminators from `idl/raydium_launchpad.json`.
 pub mod discriminators {
-    pub const TRADE: [u8; 8] = [2, 3, 4, 5, 6, 7, 8, 9];
-    pub const POOL_CREATE: [u8; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
-    pub const MIGRATE_AMM: [u8; 8] = [3, 4, 5, 6, 7, 8, 9, 10];
+    pub const BUY_EXACT_IN: [u8; 8] = [250, 234, 13, 123, 213, 156, 19, 236];
+    pub const BUY_EXACT_OUT: [u8; 8] = [24, 211, 116, 40, 105, 3, 153, 56];
+    pub const INITIALIZE: [u8; 8] = [175, 175, 109, 31, 13, 152, 155, 237];
+    pub const INITIALIZE_V2: [u8; 8] = [67, 153, 175, 39, 218, 16, 38, 32];
+    pub const INITIALIZE_WITH_TOKEN_2022: [u8; 8] = [37, 190, 126, 222, 44, 154, 171, 17];
+    pub const MIGRATE_TO_AMM: [u8; 8] = [207, 82, 192, 145, 254, 207, 145, 223];
+    pub const MIGRATE_TO_CPSWAP: [u8; 8] = [136, 92, 200, 103, 28, 218, 144, 140];
+    pub const SELL_EXACT_IN: [u8; 8] = [149, 39, 222, 155, 211, 124, 152, 26];
+    pub const SELL_EXACT_OUT: [u8; 8] = [95, 200, 71, 34, 8, 9, 11, 166];
 }
 
 /// Raydium Launchpad 程序 ID
 pub const PROGRAM_ID_PUBKEY: Pubkey = program_ids::BONK_PROGRAM_ID;
 
-/// 主要的 Bonk 指令解析函数
+/// 主要的 Raydium Launchpad 指令解析函数
 pub fn parse_instruction(
     instruction_data: &[u8],
     accounts: &[Pubkey],
@@ -34,21 +41,62 @@ pub fn parse_instruction(
     let data = &instruction_data[8..];
 
     match discriminator {
-        discriminators::TRADE => {
-            parse_trade_instruction(data, accounts, signature, slot, tx_index, block_time_us)
-        }
-        discriminators::POOL_CREATE => {
+        discriminators::BUY_EXACT_IN => parse_trade_instruction(
+            data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+            true,
+            true,
+        ),
+        discriminators::BUY_EXACT_OUT => parse_trade_instruction(
+            data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+            true,
+            false,
+        ),
+        discriminators::SELL_EXACT_IN => parse_trade_instruction(
+            data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+            false,
+            true,
+        ),
+        discriminators::SELL_EXACT_OUT => parse_trade_instruction(
+            data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+            false,
+            false,
+        ),
+        discriminators::INITIALIZE
+        | discriminators::INITIALIZE_V2
+        | discriminators::INITIALIZE_WITH_TOKEN_2022 => {
             parse_pool_create_instruction(data, accounts, signature, slot, tx_index, block_time_us)
         }
-        discriminators::MIGRATE_AMM => {
-            parse_migrate_amm_instruction(data, accounts, signature, slot, tx_index, block_time_us)
-        }
+        // The Launchpad IDL does not emit a migration event with the old
+        // `BonkMigrateAmmEvent` layout. Do not synthesize one with guessed
+        // liquidity fields.
+        discriminators::MIGRATE_TO_AMM | discriminators::MIGRATE_TO_CPSWAP => None,
         _ => None,
     }
 }
 
-/// 解析交易指令
-#[allow(unused_variables)]
+/// 解析 buy/sell 指令。
+///
+/// 外层指令只携带用户输入的 amount / min-max amount；真实成交量由 log 事件覆盖。
 fn parse_trade_instruction(
     data: &[u8],
     accounts: &[Pubkey],
@@ -56,56 +104,32 @@ fn parse_trade_instruction(
     slot: u64,
     tx_index: u64,
     block_time_us: Option<i64>,
+    is_buy: bool,
+    exact_in: bool,
 ) -> Option<DexEvent> {
-    let mut offset = 0;
+    let first_amount = read_u64_le(data, 0)?;
+    let second_amount = read_u64_le(data, 8)?;
 
-    let amount_in = read_u64_le(data, offset)?;
-    offset += 8;
+    let (amount_in, amount_out) =
+        if exact_in { (first_amount, second_amount) } else { (second_amount, first_amount) };
 
-    let amount_out_min = read_u64_le(data, offset)?;
-
-    let pool_state = get_account(accounts, 0)?;
+    let pool_state = get_account(accounts, 4)?;
     let metadata = create_metadata_simple(signature, slot, tx_index, block_time_us, pool_state);
 
     Some(DexEvent::BonkTrade(BonkTradeEvent {
         metadata,
         pool_state,
-        user: get_account(accounts, 1).unwrap_or_default(),
+        user: get_account(accounts, 0).unwrap_or_default(),
         amount_in,
-        amount_out: amount_out_min, // 先用指令中的最小值，日志会覆盖实际值
-        is_buy: true,               // 默认为买入，实际值从日志确定
-        trade_direction: TradeDirection::Buy,
-        exact_in: true,
+        amount_out,
+        is_buy,
+        trade_direction: if is_buy { TradeDirection::Buy } else { TradeDirection::Sell },
+        exact_in,
     }))
 }
 
-/// 解析池创建指令
+/// 解析 initialize / initialize_v2 / initialize_with_token_2022 指令。
 fn parse_pool_create_instruction(
-    _data: &[u8],
-    accounts: &[Pubkey],
-    signature: Signature,
-    slot: u64,
-    tx_index: u64,
-    block_time_us: Option<i64>,
-) -> Option<DexEvent> {
-    let pool_state = get_account(accounts, 0)?;
-    let metadata = create_metadata_simple(signature, slot, tx_index, block_time_us, pool_state);
-
-    Some(DexEvent::BonkPoolCreate(BonkPoolCreateEvent {
-        metadata,
-        base_mint_param: BaseMintParam {
-            symbol: "BONK".to_string(),
-            name: "Bonk Pool".to_string(),
-            uri: "https://bonk.com".to_string(),
-            decimals: 5,
-        },
-        pool_state,
-        creator: get_account(accounts, 1).unwrap_or_default(),
-    }))
-}
-
-/// 解析 AMM 迁移指令
-fn parse_migrate_amm_instruction(
     data: &[u8],
     accounts: &[Pubkey],
     signature: Signature,
@@ -113,18 +137,40 @@ fn parse_migrate_amm_instruction(
     tx_index: u64,
     block_time_us: Option<i64>,
 ) -> Option<DexEvent> {
-    let offset = 0;
+    let base_mint_param = parse_mint_params(data)?;
 
-    let liquidity_amount = read_u64_le(data, offset)?;
+    let pool_state = get_account(accounts, 5)?;
+    let metadata = create_metadata_simple(signature, slot, tx_index, block_time_us, pool_state);
 
-    let old_pool = get_account(accounts, 0)?;
-    let metadata = create_metadata_simple(signature, slot, tx_index, block_time_us, old_pool);
-
-    Some(DexEvent::BonkMigrateAmm(BonkMigrateAmmEvent {
+    Some(DexEvent::BonkPoolCreate(BonkPoolCreateEvent {
         metadata,
-        old_pool,
-        new_pool: get_account(accounts, 1).unwrap_or_default(),
-        user: get_account(accounts, 2).unwrap_or_default(),
-        liquidity_amount,
+        base_mint_param,
+        pool_state,
+        creator: get_account(accounts, 1).unwrap_or_default(),
     }))
+}
+
+fn parse_mint_params(data: &[u8]) -> Option<BaseMintParam> {
+    let mut offset = 0usize;
+    let decimals = *data.get(offset)?;
+    offset += 1;
+    let name = read_borsh_string(data, &mut offset)?;
+    let symbol = read_borsh_string(data, &mut offset)?;
+    let uri = read_borsh_string(data, &mut offset)?;
+    Some(BaseMintParam { symbol, name, uri, decimals })
+}
+
+fn read_borsh_string(data: &[u8], offset: &mut usize) -> Option<String> {
+    let len = read_u32_le(data, *offset)? as usize;
+    *offset += 4;
+    let end = (*offset).checked_add(len)?;
+    let bytes = data.get(*offset..end)?;
+    *offset = end;
+    std::str::from_utf8(bytes).ok().map(str::to_owned)
+}
+
+#[inline]
+fn read_u32_le(data: &[u8], offset: usize) -> Option<u32> {
+    let bytes = data.get(offset..offset + 4)?;
+    Some(u32::from_le_bytes(bytes.try_into().ok()?))
 }
