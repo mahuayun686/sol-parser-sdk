@@ -245,6 +245,9 @@ fn merge_pumpfun_trade(base: &mut PumpFunTradeEvent, inner: PumpFunTradeEvent) {
         base.mayhem_mode |= inner.mayhem_mode;
         base.is_cashback_coin |= inner.is_cashback_coin;
     }
+    put_u64_if_nonzero(&mut base.amount, inner.amount);
+    put_u64_if_nonzero(&mut base.max_sol_cost, inner.max_sol_cost);
+    put_u64_if_nonzero(&mut base.min_sol_output, inner.min_sol_output);
 
     base.is_created_buy |= inner.is_created_buy;
     // 保留 base 的账户上下文字段（bonding_curve, associated_bonding_curve 等）
@@ -361,6 +364,9 @@ fn merge_pumpfun_trade_log_preferred(log: &mut PumpFunTradeEvent, ix: PumpFunTra
     if log.ix_name.is_empty() && !ix.ix_name.is_empty() {
         log.ix_name = ix.ix_name;
     }
+    put_u64_if_nonzero(&mut log.amount, ix.amount);
+    put_u64_if_nonzero(&mut log.max_sol_cost, ix.max_sol_cost);
+    put_u64_if_nonzero(&mut log.min_sol_output, ix.min_sol_output);
     if !log.is_created_buy && ix.is_created_buy {
         log.is_created_buy = true;
     }

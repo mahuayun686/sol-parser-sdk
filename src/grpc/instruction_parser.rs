@@ -414,9 +414,8 @@ fn should_parse_instructions(filter: Option<&EventTypeFilter>) -> bool {
         return true;
     }
 
-    // PumpFun：外层 BUY/SELL 在 `instr/pump.rs` 不解析，但每笔买 inner 里仍有 Trade CPI；
-    // 仅走 `log_messages` 时，若 RPC 截断日志会 **丢多笔 Trade**。
-    // 打开 instruction+inner 解析，与日志在 `dedupe_log_instruction_events` 中按序去重合并。
+    // PumpFun：outer BUY/SELL carries instruction args while inner/log TradeEvent
+    // carries executed amounts. Parse both and merge them by order.
     if filter.includes_pumpfun() {
         return true;
     }

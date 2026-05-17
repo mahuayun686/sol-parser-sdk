@@ -100,8 +100,8 @@ enum LogInstrDedupKey {
 #[inline]
 fn pumpfun_ix_lane(ix_name: &str) -> u8 {
     match ix_name {
-        "sell" => 1,
-        "buy_exact_sol_in" => 2,
+        "sell" | "sell_v2" => 1,
+        "buy_exact_sol_in" | "buy_exact_quote_in_v2" => 2,
         _ => 0,
     }
 }
@@ -274,6 +274,8 @@ mod tests {
 
         let mut t2 = t1.clone();
         t2.sol_amount = 9_999_999; // 模拟 ix 侧金额与日志不一致（应保留日志）
+        t2.amount = 2_000;
+        t2.max_sol_cost = 9_999_999;
         t2.bonding_curve = Pubkey::new_unique(); // ix 补充账户
         let bc = t2.bonding_curve;
 
@@ -285,6 +287,8 @@ mod tests {
             DexEvent::PumpFunTrade(t) => {
                 assert_eq!(t.bonding_curve, bc);
                 assert_eq!(t.sol_amount, 1_000, "应保留日志侧金额");
+                assert_eq!(t.amount, 2_000, "应补齐 ix 侧 amount");
+                assert_eq!(t.max_sol_cost, 9_999_999, "应补齐 ix 侧 max_sol_cost");
             }
             e => panic!("expected PumpFunTrade (保留 log 变体), got {:?}", e),
         }

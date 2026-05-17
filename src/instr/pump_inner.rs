@@ -334,9 +334,11 @@ fn parse_trade_event_inner_zero_copy(
 
         // 根据 ix_name 返回不同的事件类型
         match ix_name.as_str() {
-            "buy" => Some(DexEvent::PumpFunBuy(trade_event)),
-            "sell" => Some(DexEvent::PumpFunSell(trade_event)),
-            "buy_exact_sol_in" => Some(DexEvent::PumpFunBuyExactSolIn(trade_event)),
+            "buy" | "buy_v2" => Some(DexEvent::PumpFunBuy(trade_event)),
+            "sell" | "sell_v2" => Some(DexEvent::PumpFunSell(trade_event)),
+            "buy_exact_sol_in" | "buy_exact_quote_in_v2" => {
+                Some(DexEvent::PumpFunBuyExactSolIn(trade_event))
+            }
             _ => Some(DexEvent::PumpFunTrade(trade_event)),
         }
     }

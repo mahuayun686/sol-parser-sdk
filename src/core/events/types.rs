@@ -128,10 +128,13 @@ pub struct PumpFunTradeEvent {
     #[borsh(skip)]
     pub is_cashback_coin: bool,
 
-    // === Instruction parameter fields (reserved for future use, DO NOT delete) ===
-    // pub amount: u64,                     // buy/sell.args.amount
-    // pub max_sol_cost: u64,               // buy.args.maxSolCost
-    // pub min_sol_output: u64,             // sell.args.minSolOutput
+    // === Instruction parameter fields (not present in the on-chain TradeEvent Borsh payload) ===
+    #[borsh(skip)]
+    pub amount: u64, // buy/sell.args.amount
+    #[borsh(skip)]
+    pub max_sol_cost: u64, // buy.args.max_sol_cost
+    #[borsh(skip)]
+    pub min_sol_output: u64, // sell.args.min_sol_output
 
     // === 指令账户字段 (从指令账户填充，不在 Borsh 数据中) ===
     // pub global: Pubkey,                  // 0

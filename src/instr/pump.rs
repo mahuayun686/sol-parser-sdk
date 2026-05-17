@@ -76,6 +76,83 @@ pub fn parse_instruction(
             grpc_recv_us,
         );
     }
+    if outer_disc == discriminators::BUY {
+        return parse_buy_instruction(
+            data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+            grpc_recv_us,
+            "buy",
+            false,
+        );
+    }
+    if outer_disc == discriminators::BUY_EXACT_SOL_IN {
+        return parse_buy_instruction(
+            data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+            grpc_recv_us,
+            "buy_exact_sol_in",
+            true,
+        );
+    }
+    if outer_disc == discriminators::SELL {
+        return parse_sell_instruction(
+            data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+            grpc_recv_us,
+            "sell",
+            false,
+        );
+    }
+    if outer_disc == discriminators::BUY_V2 {
+        return parse_buy_v2_instruction(
+            data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+            grpc_recv_us,
+            "buy_v2",
+            false,
+        );
+    }
+    if outer_disc == discriminators::BUY_EXACT_QUOTE_IN_V2 {
+        return parse_buy_v2_instruction(
+            data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+            grpc_recv_us,
+            "buy_exact_quote_in_v2",
+            true,
+        );
+    }
+    if outer_disc == discriminators::SELL_V2 {
+        return parse_sell_v2_instruction(
+            data,
+            accounts,
+            signature,
+            slot,
+            tx_index,
+            block_time_us,
+            grpc_recv_us,
+            "sell_v2",
+        );
+    }
 
     // Inner CPI：仅 MIGRATE 在此解析
     if instruction_data.len() >= 16 {
@@ -104,7 +181,6 @@ pub fn parse_instruction(
 /// 10: event_authority, 11: program, 12: global_volume_accumulator,
 /// 13: user_volume_accumulator, 14: fee_config.
 /// remaining_accounts 可能含 bonding_curve_v2 等。
-#[allow(dead_code)]
 fn parse_buy_instruction(
     data: &[u8],
     accounts: &[Pubkey],
@@ -113,23 +189,30 @@ fn parse_buy_instruction(
     tx_index: u64,
     block_time_us: Option<i64>,
     grpc_recv_us: i64,
+    ix_name: &'static str,
+    exact_quote_in: bool,
 ) -> Option<DexEvent> {
     if accounts.len() < 7 {
         return None;
     }
 
-    // Parse args: amount/spendable_sol_in (u64), max_sol_cost/min_tokens_out (u64)
-    let (sol_amount, token_amount) = if data.len() >= 16 {
+    // buy: amount, max_sol_cost. buy_exact_sol_in: spendable_sol_in, min_tokens_out.
+    let (first_arg, second_arg) = if data.len() >= 16 {
         (read_u64_le(data, 0).unwrap_or(0), read_u64_le(data, 8).unwrap_or(0))
     } else {
         (0, 0)
+    };
+    let (token_amount, sol_amount, amount, max_sol_cost) = if exact_quote_in {
+        (second_arg, first_arg, 0, 0)
+    } else {
+        (first_arg, second_arg, first_arg, second_arg)
     };
 
     let mint = get_account(accounts, 2)?;
     let metadata =
         create_metadata(signature, slot, tx_index, block_time_us.unwrap_or_default(), grpc_recv_us);
 
-    Some(DexEvent::PumpFunTrade(PumpFunTradeEvent {
+    let trade_event = PumpFunTradeEvent {
         metadata,
         mint,
         is_buy: true,
@@ -137,9 +220,21 @@ fn parse_buy_instruction(
         user: get_account(accounts, 6).unwrap_or_default(),
         sol_amount,
         token_amount,
+        amount,
+        max_sol_cost,
         fee_recipient: get_account(accounts, 1).unwrap_or_default(),
+        associated_bonding_curve: get_account(accounts, 4).unwrap_or_default(),
+        token_program: get_account(accounts, 8).unwrap_or_default(),
+        creator_vault: get_account(accounts, 9).unwrap_or_default(),
+        ix_name: ix_name.to_string(),
         ..Default::default()
-    }))
+    };
+
+    if exact_quote_in {
+        Some(DexEvent::PumpFunBuyExactSolIn(trade_event))
+    } else {
+        Some(DexEvent::PumpFunBuy(trade_event))
+    }
 }
 
 /// Parse sell instruction
@@ -150,7 +245,6 @@ fn parse_buy_instruction(
 /// 7: system_program, 8: creator_vault, 9: token_program,
 /// 10: event_authority, 11: program, 12: fee_config, 13: fee_program.
 /// remaining_accounts 可能含 user_volume_accumulator（返现）、bonding_curve_v2 等。
-#[allow(dead_code)]
 fn parse_sell_instruction(
     data: &[u8],
     accounts: &[Pubkey],
@@ -159,33 +253,132 @@ fn parse_sell_instruction(
     tx_index: u64,
     block_time_us: Option<i64>,
     grpc_recv_us: i64,
+    ix_name: &'static str,
+    v2_accounts: bool,
 ) -> Option<DexEvent> {
-    if accounts.len() < 7 {
+    let min_accounts = if v2_accounts { 26 } else { 7 };
+    if accounts.len() < min_accounts {
         return None;
     }
 
     // Parse args: amount (u64), min_sol_output (u64)
-    let (token_amount, sol_amount) = if data.len() >= 16 {
+    let (amount, min_sol_output) = if data.len() >= 16 {
         (read_u64_le(data, 0).unwrap_or(0), read_u64_le(data, 8).unwrap_or(0))
     } else {
         (0, 0)
     };
+    let token_amount = amount;
+    let sol_amount = min_sol_output;
 
-    let mint = get_account(accounts, 2)?;
+    let (
+        mint_idx,
+        bonding_curve_idx,
+        associated_bonding_curve_idx,
+        user_idx,
+        fee_recipient_idx,
+        token_program_idx,
+        creator_vault_idx,
+    ) = if v2_accounts { (1, 10, 11, 13, 6, 3, 16) } else { (2, 3, 4, 6, 1, 9, 8) };
+    let mint = get_account(accounts, mint_idx)?;
     let metadata =
         create_metadata(signature, slot, tx_index, block_time_us.unwrap_or_default(), grpc_recv_us);
 
-    Some(DexEvent::PumpFunTrade(PumpFunTradeEvent {
+    Some(DexEvent::PumpFunSell(PumpFunTradeEvent {
         metadata,
         mint,
         is_buy: false,
-        bonding_curve: get_account(accounts, 3).unwrap_or_default(),
-        user: get_account(accounts, 6).unwrap_or_default(),
+        bonding_curve: get_account(accounts, bonding_curve_idx).unwrap_or_default(),
+        user: get_account(accounts, user_idx).unwrap_or_default(),
         sol_amount,
         token_amount,
-        fee_recipient: get_account(accounts, 1).unwrap_or_default(),
+        amount,
+        min_sol_output,
+        fee_recipient: get_account(accounts, fee_recipient_idx).unwrap_or_default(),
+        associated_bonding_curve: get_account(accounts, associated_bonding_curve_idx)
+            .unwrap_or_default(),
+        token_program: get_account(accounts, token_program_idx).unwrap_or_default(),
+        creator_vault: get_account(accounts, creator_vault_idx).unwrap_or_default(),
+        ix_name: ix_name.to_string(),
         ..Default::default()
     }))
+}
+
+fn parse_buy_v2_instruction(
+    data: &[u8],
+    accounts: &[Pubkey],
+    signature: Signature,
+    slot: u64,
+    tx_index: u64,
+    block_time_us: Option<i64>,
+    grpc_recv_us: i64,
+    ix_name: &'static str,
+    exact_quote_in: bool,
+) -> Option<DexEvent> {
+    const MIN_ACC: usize = 27;
+    if accounts.len() < MIN_ACC {
+        return None;
+    }
+
+    // buy_v2: amount, max_sol_cost. buy_exact_quote_in_v2: spendable quote in, min_tokens_out.
+    let (first_arg, second_arg) = if data.len() >= 16 {
+        (read_u64_le(data, 0).unwrap_or(0), read_u64_le(data, 8).unwrap_or(0))
+    } else {
+        (0, 0)
+    };
+    let (token_amount, sol_amount, amount, max_sol_cost) = if exact_quote_in {
+        (second_arg, first_arg, 0, 0)
+    } else {
+        (first_arg, second_arg, first_arg, second_arg)
+    };
+
+    let metadata =
+        create_metadata(signature, slot, tx_index, block_time_us.unwrap_or_default(), grpc_recv_us);
+    let trade_event = PumpFunTradeEvent {
+        metadata,
+        mint: accounts[1],
+        is_buy: true,
+        bonding_curve: accounts[10],
+        associated_bonding_curve: accounts[11],
+        user: accounts[13],
+        sol_amount,
+        token_amount,
+        amount,
+        max_sol_cost,
+        fee_recipient: accounts[6],
+        token_program: accounts[3],
+        creator_vault: accounts[16],
+        ix_name: ix_name.to_string(),
+        ..Default::default()
+    };
+
+    if exact_quote_in {
+        Some(DexEvent::PumpFunBuyExactSolIn(trade_event))
+    } else {
+        Some(DexEvent::PumpFunBuy(trade_event))
+    }
+}
+
+fn parse_sell_v2_instruction(
+    data: &[u8],
+    accounts: &[Pubkey],
+    signature: Signature,
+    slot: u64,
+    tx_index: u64,
+    block_time_us: Option<i64>,
+    grpc_recv_us: i64,
+    ix_name: &'static str,
+) -> Option<DexEvent> {
+    parse_sell_instruction(
+        data,
+        accounts,
+        signature,
+        slot,
+        tx_index,
+        block_time_us,
+        grpc_recv_us,
+        ix_name,
+        true,
+    )
 }
 
 /// Parse create instruction (legacy)
@@ -408,4 +601,82 @@ fn parse_migrate_log_instruction(
         timestamp,
         pool,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn instruction_data(discriminator: [u8; 8], first: u64, second: u64) -> Vec<u8> {
+        let mut data = Vec::with_capacity(24);
+        data.extend_from_slice(&discriminator);
+        data.extend_from_slice(&first.to_le_bytes());
+        data.extend_from_slice(&second.to_le_bytes());
+        data
+    }
+
+    fn accounts(n: usize) -> Vec<Pubkey> {
+        (0..n).map(|_| Pubkey::new_unique()).collect()
+    }
+
+    #[test]
+    fn pumpfun_buy_instruction_exposes_raw_args() {
+        let data = instruction_data(discriminators::BUY, 123, 456);
+        let acc = accounts(15);
+        let event =
+            parse_instruction(&data, &acc, Signature::default(), 1, 0, None, 99).expect("event");
+
+        match event {
+            DexEvent::PumpFunBuy(t) => {
+                assert_eq!(t.amount, 123);
+                assert_eq!(t.max_sol_cost, 456);
+                assert_eq!(t.min_sol_output, 0);
+                assert_eq!(t.token_amount, 123);
+                assert_eq!(t.sol_amount, 456);
+                assert_eq!(t.ix_name, "buy");
+            }
+            other => panic!("expected PumpFunBuy, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pumpfun_sell_instruction_exposes_raw_args() {
+        let data = instruction_data(discriminators::SELL, 321, 654);
+        let acc = accounts(14);
+        let event =
+            parse_instruction(&data, &acc, Signature::default(), 1, 0, None, 99).expect("event");
+
+        match event {
+            DexEvent::PumpFunSell(t) => {
+                assert_eq!(t.amount, 321);
+                assert_eq!(t.max_sol_cost, 0);
+                assert_eq!(t.min_sol_output, 654);
+                assert_eq!(t.token_amount, 321);
+                assert_eq!(t.sol_amount, 654);
+                assert_eq!(t.ix_name, "sell");
+            }
+            other => panic!("expected PumpFunSell, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pumpfun_v2_instruction_args_use_v2_account_layout() {
+        let data = instruction_data(discriminators::BUY_V2, 777, 888);
+        let acc = accounts(27);
+        let event =
+            parse_instruction(&data, &acc, Signature::default(), 1, 0, None, 99).expect("event");
+
+        match event {
+            DexEvent::PumpFunBuy(t) => {
+                assert_eq!(t.amount, 777);
+                assert_eq!(t.max_sol_cost, 888);
+                assert_eq!(t.mint, acc[1]);
+                assert_eq!(t.bonding_curve, acc[10]);
+                assert_eq!(t.associated_bonding_curve, acc[11]);
+                assert_eq!(t.user, acc[13]);
+                assert_eq!(t.ix_name, "buy_v2");
+            }
+            other => panic!("expected PumpFunBuy, got {other:?}"),
+        }
+    }
 }
