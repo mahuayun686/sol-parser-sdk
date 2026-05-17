@@ -174,13 +174,13 @@ pub fn parse_instruction(
 
 /// Parse buy/buy_exact_sol_in instruction
 ///
-/// Account indices (from pump.json IDL), 15 个固定账户:
+/// Account indices (from pump.json IDL), 16 个固定账户:
 /// 0: global, 1: fee_recipient, 2: mint, 3: bonding_curve,
 /// 4: associated_bonding_curve, 5: associated_user, 6: user,
 /// 7: system_program, 8: token_program, 9: creator_vault,
 /// 10: event_authority, 11: program, 12: global_volume_accumulator,
-/// 13: user_volume_accumulator, 14: fee_config.
-/// remaining_accounts 可能含 bonding_curve_v2 等。
+/// 13: user_volume_accumulator, 14: fee_config, 15: fee_program.
+/// Post-upgrade remaining accounts: 16 bonding_curve_v2, 17 buyback_fee_recipient.
 fn parse_buy_instruction(
     data: &[u8],
     accounts: &[Pubkey],
@@ -192,7 +192,8 @@ fn parse_buy_instruction(
     ix_name: &'static str,
     exact_quote_in: bool,
 ) -> Option<DexEvent> {
-    if accounts.len() < 7 {
+    const LEGACY_BUY_ACCOUNTS: usize = 16;
+    if accounts.len() < LEGACY_BUY_ACCOUNTS {
         return None;
     }
 
@@ -202,12 +203,25 @@ fn parse_buy_instruction(
     } else {
         (0, 0)
     };
-    let (token_amount, sol_amount, amount, max_sol_cost) = if exact_quote_in {
-        (second_arg, first_arg, 0, 0)
+    let track_volume = data.get(16).copied().map(|b| b != 0).unwrap_or(false);
+    let (
+        token_amount,
+        sol_amount,
+        amount,
+        max_sol_cost,
+        spendable_sol_in,
+        spendable_quote_in,
+        min_tokens_out,
+    ) = if exact_quote_in {
+        (second_arg, first_arg, second_arg, first_arg, first_arg, 0, second_arg)
     } else {
-        (first_arg, second_arg, first_arg, second_arg)
+        (first_arg, second_arg, first_arg, second_arg, 0, 0, 0)
     };
-
+    let bonding_curve_v2 = get_account(accounts, 16).unwrap_or_default();
+    let buyback_fee_recipient = get_account(accounts, 17).unwrap_or_default();
+    let account =
+        if buyback_fee_recipient != Pubkey::default() { Some(buyback_fee_recipient) } else { None };
+    let fee_program = get_account(accounts, 15).unwrap_or_default();
     let mint = get_account(accounts, 2)?;
     let metadata =
         create_metadata(signature, slot, tx_index, block_time_us.unwrap_or_default(), grpc_recv_us);
@@ -216,16 +230,32 @@ fn parse_buy_instruction(
         metadata,
         mint,
         is_buy: true,
+        global: get_account(accounts, 0).unwrap_or_default(),
+        fee_recipient: get_account(accounts, 1).unwrap_or_default(),
         bonding_curve: get_account(accounts, 3).unwrap_or_default(),
+        bonding_curve_v2,
+        associated_bonding_curve: get_account(accounts, 4).unwrap_or_default(),
+        associated_user: get_account(accounts, 5).unwrap_or_default(),
         user: get_account(accounts, 6).unwrap_or_default(),
+        system_program: get_account(accounts, 7).unwrap_or_default(),
+        token_program: get_account(accounts, 8).unwrap_or_default(),
+        creator_vault: get_account(accounts, 9).unwrap_or_default(),
+        event_authority: get_account(accounts, 10).unwrap_or_default(),
+        program: get_account(accounts, 11).unwrap_or_default(),
+        global_volume_accumulator: get_account(accounts, 12).unwrap_or_default(),
+        user_volume_accumulator: get_account(accounts, 13).unwrap_or_default(),
+        fee_config: get_account(accounts, 14).unwrap_or_default(),
+        fee_program,
+        buyback_fee_recipient,
+        account,
         sol_amount,
         token_amount,
         amount,
         max_sol_cost,
-        fee_recipient: get_account(accounts, 1).unwrap_or_default(),
-        associated_bonding_curve: get_account(accounts, 4).unwrap_or_default(),
-        token_program: get_account(accounts, 8).unwrap_or_default(),
-        creator_vault: get_account(accounts, 9).unwrap_or_default(),
+        spendable_sol_in,
+        spendable_quote_in,
+        min_tokens_out,
+        track_volume,
         ix_name: ix_name.to_string(),
         ..Default::default()
     };
@@ -244,7 +274,8 @@ fn parse_buy_instruction(
 /// 4: associated_bonding_curve, 5: associated_user, 6: user,
 /// 7: system_program, 8: creator_vault, 9: token_program,
 /// 10: event_authority, 11: program, 12: fee_config, 13: fee_program.
-/// remaining_accounts 可能含 user_volume_accumulator（返现）、bonding_curve_v2 等。
+/// Post-upgrade non-cashback: 14 bonding_curve_v2, 15 buyback_fee_recipient.
+/// Post-upgrade cashback: 14 user_volume_accumulator, 15 bonding_curve_v2, 16 buyback_fee_recipient.
 fn parse_sell_instruction(
     data: &[u8],
     accounts: &[Pubkey],
@@ -256,7 +287,7 @@ fn parse_sell_instruction(
     ix_name: &'static str,
     v2_accounts: bool,
 ) -> Option<DexEvent> {
-    let min_accounts = if v2_accounts { 26 } else { 7 };
+    let min_accounts = if v2_accounts { 26 } else { 14 };
     if accounts.len() < min_accounts {
         return None;
     }
@@ -271,33 +302,137 @@ fn parse_sell_instruction(
     let sol_amount = min_sol_output;
 
     let (
+        global_idx,
         mint_idx,
         bonding_curve_idx,
         associated_bonding_curve_idx,
+        associated_user_idx,
         user_idx,
+        system_program_idx,
         fee_recipient_idx,
         token_program_idx,
         creator_vault_idx,
-    ) = if v2_accounts { (1, 10, 11, 13, 6, 3, 16) } else { (2, 3, 4, 6, 1, 9, 8) };
+        event_authority_idx,
+        program_idx,
+        user_volume_accumulator_idx,
+        fee_config_idx,
+        fee_program_idx,
+    ) = if v2_accounts {
+        (0, 1, 10, 11, 14, 13, 23, 6, 3, 16, 24, 25, 19, 21, 22)
+    } else {
+        (0, 2, 3, 4, 5, 6, 7, 1, 9, 8, 10, 11, usize::MAX, 12, 13)
+    };
     let mint = get_account(accounts, mint_idx)?;
+    let (legacy_user_volume_accumulator, legacy_bonding_curve_v2, legacy_buyback_fee_recipient) =
+        if v2_accounts {
+            (Pubkey::default(), Pubkey::default(), Pubkey::default())
+        } else if accounts.len() >= 17 {
+            (
+                get_account(accounts, 14).unwrap_or_default(),
+                get_account(accounts, 15).unwrap_or_default(),
+                get_account(accounts, 16).unwrap_or_default(),
+            )
+        } else if accounts.len() >= 16 {
+            (
+                Pubkey::default(),
+                get_account(accounts, 14).unwrap_or_default(),
+                get_account(accounts, 15).unwrap_or_default(),
+            )
+        } else {
+            (Pubkey::default(), get_account(accounts, 14).unwrap_or_default(), Pubkey::default())
+        };
+    let account = if legacy_buyback_fee_recipient != Pubkey::default() {
+        Some(legacy_buyback_fee_recipient)
+    } else {
+        None
+    };
     let metadata =
         create_metadata(signature, slot, tx_index, block_time_us.unwrap_or_default(), grpc_recv_us);
 
     Some(DexEvent::PumpFunSell(PumpFunTradeEvent {
         metadata,
         mint,
+        quote_mint: if v2_accounts {
+            get_account(accounts, 2).unwrap_or_default()
+        } else {
+            Pubkey::default()
+        },
         is_buy: false,
+        global: get_account(accounts, global_idx).unwrap_or_default(),
         bonding_curve: get_account(accounts, bonding_curve_idx).unwrap_or_default(),
+        bonding_curve_v2: legacy_bonding_curve_v2,
+        associated_bonding_curve: get_account(accounts, associated_bonding_curve_idx)
+            .unwrap_or_default(),
+        associated_user: get_account(accounts, associated_user_idx).unwrap_or_default(),
         user: get_account(accounts, user_idx).unwrap_or_default(),
+        system_program: get_account(accounts, system_program_idx).unwrap_or_default(),
+        fee_recipient: get_account(accounts, fee_recipient_idx).unwrap_or_default(),
+        token_program: get_account(accounts, token_program_idx).unwrap_or_default(),
+        quote_token_program: if v2_accounts {
+            get_account(accounts, 4).unwrap_or_default()
+        } else {
+            Pubkey::default()
+        },
+        associated_token_program: if v2_accounts {
+            get_account(accounts, 5).unwrap_or_default()
+        } else {
+            Pubkey::default()
+        },
+        creator_vault: get_account(accounts, creator_vault_idx).unwrap_or_default(),
+        associated_quote_fee_recipient: if v2_accounts {
+            get_account(accounts, 7).unwrap_or_default()
+        } else {
+            Pubkey::default()
+        },
+        associated_quote_buyback_fee_recipient: if v2_accounts {
+            get_account(accounts, 9).unwrap_or_default()
+        } else {
+            Pubkey::default()
+        },
+        associated_quote_bonding_curve: if v2_accounts {
+            get_account(accounts, 12).unwrap_or_default()
+        } else {
+            Pubkey::default()
+        },
+        associated_quote_user: if v2_accounts {
+            get_account(accounts, 15).unwrap_or_default()
+        } else {
+            Pubkey::default()
+        },
+        associated_creator_vault: if v2_accounts {
+            get_account(accounts, 17).unwrap_or_default()
+        } else {
+            Pubkey::default()
+        },
+        sharing_config: if v2_accounts {
+            get_account(accounts, 18).unwrap_or_default()
+        } else {
+            Pubkey::default()
+        },
+        event_authority: get_account(accounts, event_authority_idx).unwrap_or_default(),
+        program: get_account(accounts, program_idx).unwrap_or_default(),
+        user_volume_accumulator: if v2_accounts {
+            get_account(accounts, user_volume_accumulator_idx).unwrap_or_default()
+        } else {
+            legacy_user_volume_accumulator
+        },
+        associated_user_volume_accumulator: if v2_accounts {
+            get_account(accounts, 20).unwrap_or_default()
+        } else {
+            Pubkey::default()
+        },
+        fee_config: get_account(accounts, fee_config_idx).unwrap_or_default(),
+        fee_program: get_account(accounts, fee_program_idx).unwrap_or_default(),
+        buyback_fee_recipient: if v2_accounts {
+            get_account(accounts, 8).unwrap_or_default()
+        } else {
+            legacy_buyback_fee_recipient
+        },
+        account,
         sol_amount,
         token_amount,
         amount,
         min_sol_output,
-        fee_recipient: get_account(accounts, fee_recipient_idx).unwrap_or_default(),
-        associated_bonding_curve: get_account(accounts, associated_bonding_curve_idx)
-            .unwrap_or_default(),
-        token_program: get_account(accounts, token_program_idx).unwrap_or_default(),
-        creator_vault: get_account(accounts, creator_vault_idx).unwrap_or_default(),
         ix_name: ix_name.to_string(),
         ..Default::default()
     }))
@@ -325,28 +460,52 @@ fn parse_buy_v2_instruction(
     } else {
         (0, 0)
     };
-    let (token_amount, sol_amount, amount, max_sol_cost) = if exact_quote_in {
-        (second_arg, first_arg, 0, 0)
-    } else {
-        (first_arg, second_arg, first_arg, second_arg)
-    };
+    let (token_amount, sol_amount, amount, max_sol_cost, spendable_quote_in, min_tokens_out) =
+        if exact_quote_in {
+            (second_arg, first_arg, second_arg, first_arg, first_arg, second_arg)
+        } else {
+            (first_arg, second_arg, first_arg, second_arg, 0, 0)
+        };
 
     let metadata =
         create_metadata(signature, slot, tx_index, block_time_us.unwrap_or_default(), grpc_recv_us);
     let trade_event = PumpFunTradeEvent {
         metadata,
         mint: accounts[1],
+        quote_mint: accounts[2],
         is_buy: true,
+        global: accounts[0],
         bonding_curve: accounts[10],
         associated_bonding_curve: accounts[11],
+        associated_user: accounts[14],
         user: accounts[13],
+        system_program: accounts[24],
+        quote_token_program: accounts[4],
+        associated_token_program: accounts[5],
         sol_amount,
         token_amount,
         amount,
         max_sol_cost,
+        spendable_sol_in: 0,
+        spendable_quote_in,
+        min_tokens_out,
         fee_recipient: accounts[6],
         token_program: accounts[3],
         creator_vault: accounts[16],
+        associated_quote_fee_recipient: accounts[7],
+        buyback_fee_recipient: accounts[8],
+        associated_quote_buyback_fee_recipient: accounts[9],
+        associated_quote_bonding_curve: accounts[12],
+        associated_quote_user: accounts[15],
+        associated_creator_vault: accounts[17],
+        sharing_config: accounts[18],
+        event_authority: accounts[25],
+        program: accounts[26],
+        global_volume_accumulator: accounts[19],
+        user_volume_accumulator: accounts[20],
+        associated_user_volume_accumulator: accounts[21],
+        fee_config: accounts[22],
+        fee_program: accounts[23],
         ix_name: ix_name.to_string(),
         ..Default::default()
     };
@@ -622,7 +781,7 @@ mod tests {
     #[test]
     fn pumpfun_buy_instruction_exposes_raw_args() {
         let data = instruction_data(discriminators::BUY, 123, 456);
-        let acc = accounts(15);
+        let acc = accounts(18);
         let event =
             parse_instruction(&data, &acc, Signature::default(), 1, 0, None, 99).expect("event");
 
@@ -631,8 +790,12 @@ mod tests {
                 assert_eq!(t.amount, 123);
                 assert_eq!(t.max_sol_cost, 456);
                 assert_eq!(t.min_sol_output, 0);
+                assert_eq!(t.spendable_sol_in, 0);
+                assert_eq!(t.min_tokens_out, 0);
                 assert_eq!(t.token_amount, 123);
                 assert_eq!(t.sol_amount, 456);
+                assert_eq!(t.bonding_curve_v2, acc[16]);
+                assert_eq!(t.buyback_fee_recipient, acc[17]);
                 assert_eq!(t.ix_name, "buy");
             }
             other => panic!("expected PumpFunBuy, got {other:?}"),
@@ -640,9 +803,20 @@ mod tests {
     }
 
     #[test]
+    fn pumpfun_legacy_trade_rejects_short_account_lists() {
+        let buy_data = instruction_data(discriminators::BUY, 123, 456);
+        assert!(parse_instruction(&buy_data, &accounts(15), Signature::default(), 1, 0, None, 99)
+            .is_none());
+
+        let sell_data = instruction_data(discriminators::SELL, 321, 654);
+        assert!(parse_instruction(&sell_data, &accounts(13), Signature::default(), 1, 0, None, 99)
+            .is_none());
+    }
+
+    #[test]
     fn pumpfun_sell_instruction_exposes_raw_args() {
         let data = instruction_data(discriminators::SELL, 321, 654);
-        let acc = accounts(14);
+        let acc = accounts(16);
         let event =
             parse_instruction(&data, &acc, Signature::default(), 1, 0, None, 99).expect("event");
 
@@ -651,11 +825,59 @@ mod tests {
                 assert_eq!(t.amount, 321);
                 assert_eq!(t.max_sol_cost, 0);
                 assert_eq!(t.min_sol_output, 654);
+                assert_eq!(t.spendable_sol_in, 0);
+                assert_eq!(t.min_tokens_out, 0);
                 assert_eq!(t.token_amount, 321);
                 assert_eq!(t.sol_amount, 654);
+                assert_eq!(t.user_volume_accumulator, Pubkey::default());
+                assert_eq!(t.bonding_curve_v2, acc[14]);
+                assert_eq!(t.buyback_fee_recipient, acc[15]);
                 assert_eq!(t.ix_name, "sell");
             }
             other => panic!("expected PumpFunSell, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pumpfun_cashback_sell_uses_17_account_layout() {
+        let data = instruction_data(discriminators::SELL, 321, 654);
+        let acc = accounts(17);
+        let event =
+            parse_instruction(&data, &acc, Signature::default(), 1, 0, None, 99).expect("event");
+
+        match event {
+            DexEvent::PumpFunSell(t) => {
+                assert_eq!(t.user_volume_accumulator, acc[14]);
+                assert_eq!(t.bonding_curve_v2, acc[15]);
+                assert_eq!(t.buyback_fee_recipient, acc[16]);
+            }
+            other => panic!("expected PumpFunSell, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pumpfun_buy_exact_sol_in_exposes_exact_args() {
+        let data = instruction_data(discriminators::BUY_EXACT_SOL_IN, 1_111, 2_222);
+        let acc = accounts(18);
+        let event =
+            parse_instruction(&data, &acc, Signature::default(), 1, 0, None, 99).expect("event");
+
+        match event {
+            DexEvent::PumpFunBuyExactSolIn(t) => {
+                assert_eq!(t.spendable_sol_in, 1_111);
+                assert_eq!(t.spendable_quote_in, 0);
+                assert_eq!(t.min_tokens_out, 2_222);
+                assert_eq!(t.sol_amount, 1_111);
+                assert_eq!(t.token_amount, 2_222);
+                assert_eq!(t.global, acc[0]);
+                assert_eq!(t.associated_user, acc[5]);
+                assert_eq!(t.event_authority, acc[10]);
+                assert_eq!(t.fee_program, acc[15]);
+                assert_eq!(t.bonding_curve_v2, acc[16]);
+                assert_eq!(t.buyback_fee_recipient, acc[17]);
+                assert_eq!(t.ix_name, "buy_exact_sol_in");
+            }
+            other => panic!("expected PumpFunBuyExactSolIn, got {other:?}"),
         }
     }
 
@@ -671,9 +893,20 @@ mod tests {
                 assert_eq!(t.amount, 777);
                 assert_eq!(t.max_sol_cost, 888);
                 assert_eq!(t.mint, acc[1]);
+                assert_eq!(t.quote_mint, acc[2]);
                 assert_eq!(t.bonding_curve, acc[10]);
                 assert_eq!(t.associated_bonding_curve, acc[11]);
+                assert_eq!(t.associated_quote_bonding_curve, acc[12]);
                 assert_eq!(t.user, acc[13]);
+                assert_eq!(t.associated_quote_user, acc[15]);
+                assert_eq!(t.quote_token_program, acc[4]);
+                assert_eq!(t.associated_token_program, acc[5]);
+                assert_eq!(t.associated_quote_fee_recipient, acc[7]);
+                assert_eq!(t.buyback_fee_recipient, acc[8]);
+                assert_eq!(t.associated_quote_buyback_fee_recipient, acc[9]);
+                assert_eq!(t.associated_creator_vault, acc[17]);
+                assert_eq!(t.sharing_config, acc[18]);
+                assert_eq!(t.associated_user_volume_accumulator, acc[21]);
                 assert_eq!(t.ix_name, "buy_v2");
             }
             other => panic!("expected PumpFunBuy, got {other:?}"),

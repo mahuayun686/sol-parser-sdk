@@ -677,7 +677,8 @@ fn parse_buy_instruction(
     created_mints: &PumpMintSet,
     mayhem_mints: &PumpMintSet,
 ) -> Option<DexEvent> {
-    if ix_accounts.len() < 7 {
+    const LEGACY_BUY_ACCOUNTS: usize = 16;
+    if ix_accounts.len() < LEGACY_BUY_ACCOUNTS {
         return None;
     }
 
@@ -704,17 +705,33 @@ fn parse_buy_instruction(
         recent_blockhash: None,
     };
 
-    Some(DexEvent::PumpFunTrade(PumpFunTradeEvent {
+    Some(DexEvent::PumpFunBuy(PumpFunTradeEvent {
         metadata,
         mint,
+        global: get_account(0).unwrap_or_default(),
         bonding_curve: get_account(3).unwrap_or_default(),
+        bonding_curve_v2: get_account(16).unwrap_or_default(),
+        associated_bonding_curve: get_account(4).unwrap_or_default(),
+        associated_user: get_account(5).unwrap_or_default(),
         user: get_account(6).unwrap_or_default(),
+        system_program: get_account(7).unwrap_or_default(),
         sol_amount,
         token_amount,
         amount: token_amount,
         max_sol_cost: sol_amount,
         min_sol_output: 0,
+        spendable_sol_in: 0,
+        spendable_quote_in: 0,
+        min_tokens_out: 0,
         fee_recipient: get_account(1).unwrap_or_default(),
+        token_program: token_program_or_default(get_account(8).unwrap_or_default()),
+        creator_vault: get_account(9).unwrap_or_default(),
+        event_authority: get_account(10).unwrap_or_default(),
+        program: get_account(11).unwrap_or_default(),
+        global_volume_accumulator: get_account(12).unwrap_or_default(),
+        user_volume_accumulator: get_account(13).unwrap_or_default(),
+        fee_config: get_account(14).unwrap_or_default(),
+        fee_program: get_account(15).unwrap_or_default(),
         is_buy: true,
         is_created_buy,
         timestamp: 0,
@@ -737,10 +754,9 @@ fn parse_buy_instruction(
         cashback_fee_basis_points: 0,
         cashback: 0,
         is_cashback_coin: false,
-        associated_bonding_curve: get_account(4).unwrap_or_default(),
-        token_program: token_program_or_default(get_account(8).unwrap_or_default()),
-        creator_vault: get_account(9).unwrap_or_default(),
-        account: None,
+        buyback_fee_recipient: get_account(17).unwrap_or_default(),
+        account: get_account(17).filter(|pk| *pk != Pubkey::default()),
+        ..Default::default()
     }))
 }
 
@@ -754,7 +770,8 @@ fn parse_sell_instruction(
     tx_index: u64,
     recv_us: i64,
 ) -> Option<DexEvent> {
-    if ix_accounts.len() < 7 {
+    const LEGACY_SELL_ACCOUNTS: usize = 14;
+    if ix_accounts.len() < LEGACY_SELL_ACCOUNTS {
         return None;
     }
 
@@ -778,17 +795,41 @@ fn parse_sell_instruction(
         recent_blockhash: None,
     };
 
-    Some(DexEvent::PumpFunTrade(PumpFunTradeEvent {
+    Some(DexEvent::PumpFunSell(PumpFunTradeEvent {
         metadata,
         mint,
+        global: get_account(0).unwrap_or_default(),
         bonding_curve: get_account(3).unwrap_or_default(),
+        bonding_curve_v2: if ix_accounts.len() >= 17 {
+            get_account(15).unwrap_or_default()
+        } else {
+            get_account(14).unwrap_or_default()
+        },
+        associated_bonding_curve: get_account(4).unwrap_or_default(),
+        associated_user: get_account(5).unwrap_or_default(),
         user: get_account(6).unwrap_or_default(),
+        system_program: get_account(7).unwrap_or_default(),
         sol_amount,
         token_amount,
         amount: token_amount,
         max_sol_cost: 0,
         min_sol_output: sol_amount,
+        spendable_sol_in: 0,
+        spendable_quote_in: 0,
+        min_tokens_out: 0,
         fee_recipient: get_account(1).unwrap_or_default(),
+        token_program: token_program_or_default(get_account(9).unwrap_or_default()),
+        creator_vault: get_account(8).unwrap_or_default(),
+        event_authority: get_account(10).unwrap_or_default(),
+        program: get_account(11).unwrap_or_default(),
+        global_volume_accumulator: Pubkey::default(),
+        user_volume_accumulator: if ix_accounts.len() >= 17 {
+            get_account(14).unwrap_or_default()
+        } else {
+            Pubkey::default()
+        },
+        fee_config: get_account(12).unwrap_or_default(),
+        fee_program: get_account(13).unwrap_or_default(),
         is_buy: false,
         is_created_buy: false,
         timestamp: 0,
@@ -811,10 +852,17 @@ fn parse_sell_instruction(
         cashback_fee_basis_points: 0,
         cashback: 0,
         is_cashback_coin: false,
-        associated_bonding_curve: get_account(4).unwrap_or_default(),
-        token_program: token_program_or_default(get_account(9).unwrap_or_default()),
-        creator_vault: get_account(8).unwrap_or_default(),
-        account: None,
+        buyback_fee_recipient: if ix_accounts.len() >= 17 {
+            get_account(16).unwrap_or_default()
+        } else {
+            get_account(15).unwrap_or_default()
+        },
+        account: if ix_accounts.len() >= 17 {
+            get_account(16).filter(|pk| *pk != Pubkey::default())
+        } else {
+            get_account(15).filter(|pk| *pk != Pubkey::default())
+        },
+        ..Default::default()
     }))
 }
 
@@ -830,7 +878,8 @@ fn parse_buy_exact_sol_in_instruction(
     created_mints: &PumpMintSet,
     mayhem_mints: &PumpMintSet,
 ) -> Option<DexEvent> {
-    if ix_accounts.len() < 7 {
+    const LEGACY_BUY_ACCOUNTS: usize = 16;
+    if ix_accounts.len() < LEGACY_BUY_ACCOUNTS {
         return None;
     }
 
@@ -857,17 +906,33 @@ fn parse_buy_exact_sol_in_instruction(
         recent_blockhash: None,
     };
 
-    Some(DexEvent::PumpFunTrade(PumpFunTradeEvent {
+    Some(DexEvent::PumpFunBuyExactSolIn(PumpFunTradeEvent {
         metadata,
         mint,
+        global: get_account(0).unwrap_or_default(),
         bonding_curve: get_account(3).unwrap_or_default(),
+        bonding_curve_v2: get_account(16).unwrap_or_default(),
+        associated_bonding_curve: get_account(4).unwrap_or_default(),
+        associated_user: get_account(5).unwrap_or_default(),
         user: get_account(6).unwrap_or_default(),
+        system_program: get_account(7).unwrap_or_default(),
         sol_amount,
         token_amount,
-        amount: 0,
-        max_sol_cost: 0,
+        amount: token_amount,
+        max_sol_cost: sol_amount,
         min_sol_output: 0,
+        spendable_sol_in: sol_amount,
+        spendable_quote_in: 0,
+        min_tokens_out: token_amount,
         fee_recipient: get_account(1).unwrap_or_default(),
+        token_program: token_program_or_default(get_account(8).unwrap_or_default()),
+        creator_vault: get_account(9).unwrap_or_default(),
+        event_authority: get_account(10).unwrap_or_default(),
+        program: get_account(11).unwrap_or_default(),
+        global_volume_accumulator: get_account(12).unwrap_or_default(),
+        user_volume_accumulator: get_account(13).unwrap_or_default(),
+        fee_config: get_account(14).unwrap_or_default(),
+        fee_program: get_account(15).unwrap_or_default(),
         is_buy: true,
         is_created_buy,
         timestamp: 0,
@@ -890,10 +955,9 @@ fn parse_buy_exact_sol_in_instruction(
         cashback_fee_basis_points: 0,
         cashback: 0,
         is_cashback_coin: false,
-        associated_bonding_curve: get_account(4).unwrap_or_default(),
-        token_program: token_program_or_default(get_account(8).unwrap_or_default()),
-        creator_vault: get_account(9).unwrap_or_default(),
-        account: None,
+        buyback_fee_recipient: get_account(17).unwrap_or_default(),
+        account: get_account(17).filter(|pk| *pk != Pubkey::default()),
+        ..Default::default()
     }))
 }
 
@@ -938,17 +1002,43 @@ fn parse_buy_v2_instruction(
         recent_blockhash: None,
     };
 
-    Some(DexEvent::PumpFunTrade(PumpFunTradeEvent {
+    Some(DexEvent::PumpFunBuy(PumpFunTradeEvent {
         metadata,
         mint,
+        quote_mint: get_account(2).unwrap_or_default(),
+        global: get_account(0).unwrap_or_default(),
         bonding_curve: get_account(10).unwrap_or_default(),
+        associated_bonding_curve: get_account(11).unwrap_or_default(),
+        associated_quote_bonding_curve: get_account(12).unwrap_or_default(),
+        associated_user: get_account(14).unwrap_or_default(),
+        associated_quote_user: get_account(15).unwrap_or_default(),
         user: get_account(13).unwrap_or_default(),
+        system_program: get_account(24).unwrap_or_default(),
         sol_amount,
         token_amount,
         amount: token_amount,
         max_sol_cost: sol_amount,
         min_sol_output: 0,
+        spendable_sol_in: 0,
+        spendable_quote_in: 0,
+        min_tokens_out: 0,
         fee_recipient: get_account(6).unwrap_or_default(),
+        token_program: token_program_or_default(get_account(3).unwrap_or_default()),
+        quote_token_program: token_program_or_default(get_account(4).unwrap_or_default()),
+        associated_token_program: get_account(5).unwrap_or_default(),
+        creator_vault: get_account(16).unwrap_or_default(),
+        associated_quote_fee_recipient: get_account(7).unwrap_or_default(),
+        buyback_fee_recipient: get_account(8).unwrap_or_default(),
+        associated_quote_buyback_fee_recipient: get_account(9).unwrap_or_default(),
+        associated_creator_vault: get_account(17).unwrap_or_default(),
+        sharing_config: get_account(18).unwrap_or_default(),
+        event_authority: get_account(25).unwrap_or_default(),
+        program: get_account(26).unwrap_or_default(),
+        global_volume_accumulator: get_account(19).unwrap_or_default(),
+        user_volume_accumulator: get_account(20).unwrap_or_default(),
+        associated_user_volume_accumulator: get_account(21).unwrap_or_default(),
+        fee_config: get_account(22).unwrap_or_default(),
+        fee_program: get_account(23).unwrap_or_default(),
         is_buy: true,
         is_created_buy,
         timestamp: 0,
@@ -971,10 +1061,8 @@ fn parse_buy_v2_instruction(
         cashback_fee_basis_points: 0,
         cashback: 0,
         is_cashback_coin: false,
-        associated_bonding_curve: get_account(11).unwrap_or_default(),
-        token_program: token_program_or_default(get_account(3).unwrap_or_default()),
-        creator_vault: get_account(16).unwrap_or_default(),
         account: None,
+        ..Default::default()
     }))
 }
 
@@ -1018,17 +1106,43 @@ fn parse_buy_exact_quote_in_v2_instruction(
         recent_blockhash: None,
     };
 
-    Some(DexEvent::PumpFunTrade(PumpFunTradeEvent {
+    Some(DexEvent::PumpFunBuyExactSolIn(PumpFunTradeEvent {
         metadata,
         mint,
+        quote_mint: get_account(2).unwrap_or_default(),
+        global: get_account(0).unwrap_or_default(),
         bonding_curve: get_account(10).unwrap_or_default(),
+        associated_bonding_curve: get_account(11).unwrap_or_default(),
+        associated_quote_bonding_curve: get_account(12).unwrap_or_default(),
+        associated_user: get_account(14).unwrap_or_default(),
+        associated_quote_user: get_account(15).unwrap_or_default(),
         user: get_account(13).unwrap_or_default(),
+        system_program: get_account(24).unwrap_or_default(),
         sol_amount,
         token_amount,
-        amount: 0,
-        max_sol_cost: 0,
+        amount: token_amount,
+        max_sol_cost: sol_amount,
         min_sol_output: 0,
+        spendable_sol_in: 0,
+        spendable_quote_in: sol_amount,
+        min_tokens_out: token_amount,
         fee_recipient: get_account(6).unwrap_or_default(),
+        token_program: token_program_or_default(get_account(3).unwrap_or_default()),
+        quote_token_program: token_program_or_default(get_account(4).unwrap_or_default()),
+        associated_token_program: get_account(5).unwrap_or_default(),
+        creator_vault: get_account(16).unwrap_or_default(),
+        associated_quote_fee_recipient: get_account(7).unwrap_or_default(),
+        buyback_fee_recipient: get_account(8).unwrap_or_default(),
+        associated_quote_buyback_fee_recipient: get_account(9).unwrap_or_default(),
+        associated_creator_vault: get_account(17).unwrap_or_default(),
+        sharing_config: get_account(18).unwrap_or_default(),
+        event_authority: get_account(25).unwrap_or_default(),
+        program: get_account(26).unwrap_or_default(),
+        global_volume_accumulator: get_account(19).unwrap_or_default(),
+        user_volume_accumulator: get_account(20).unwrap_or_default(),
+        associated_user_volume_accumulator: get_account(21).unwrap_or_default(),
+        fee_config: get_account(22).unwrap_or_default(),
+        fee_program: get_account(23).unwrap_or_default(),
         is_buy: true,
         is_created_buy,
         timestamp: 0,
@@ -1051,10 +1165,8 @@ fn parse_buy_exact_quote_in_v2_instruction(
         cashback_fee_basis_points: 0,
         cashback: 0,
         is_cashback_coin: false,
-        associated_bonding_curve: get_account(11).unwrap_or_default(),
-        token_program: token_program_or_default(get_account(3).unwrap_or_default()),
-        creator_vault: get_account(16).unwrap_or_default(),
         account: None,
+        ..Default::default()
     }))
 }
 
@@ -1095,17 +1207,43 @@ fn parse_sell_v2_instruction(
         recent_blockhash: None,
     };
 
-    Some(DexEvent::PumpFunTrade(PumpFunTradeEvent {
+    Some(DexEvent::PumpFunSell(PumpFunTradeEvent {
         metadata,
         mint,
+        quote_mint: get_account(2).unwrap_or_default(),
+        global: get_account(0).unwrap_or_default(),
         bonding_curve: get_account(10).unwrap_or_default(),
+        associated_bonding_curve: get_account(11).unwrap_or_default(),
+        associated_quote_bonding_curve: get_account(12).unwrap_or_default(),
+        associated_user: get_account(14).unwrap_or_default(),
+        associated_quote_user: get_account(15).unwrap_or_default(),
         user: get_account(13).unwrap_or_default(),
+        system_program: get_account(23).unwrap_or_default(),
         sol_amount,
         token_amount,
         amount: token_amount,
         max_sol_cost: 0,
         min_sol_output: sol_amount,
+        spendable_sol_in: 0,
+        spendable_quote_in: 0,
+        min_tokens_out: 0,
         fee_recipient: get_account(6).unwrap_or_default(),
+        token_program: token_program_or_default(get_account(3).unwrap_or_default()),
+        quote_token_program: token_program_or_default(get_account(4).unwrap_or_default()),
+        associated_token_program: get_account(5).unwrap_or_default(),
+        creator_vault: get_account(16).unwrap_or_default(),
+        associated_quote_fee_recipient: get_account(7).unwrap_or_default(),
+        buyback_fee_recipient: get_account(8).unwrap_or_default(),
+        associated_quote_buyback_fee_recipient: get_account(9).unwrap_or_default(),
+        associated_creator_vault: get_account(17).unwrap_or_default(),
+        sharing_config: get_account(18).unwrap_or_default(),
+        event_authority: get_account(24).unwrap_or_default(),
+        program: get_account(25).unwrap_or_default(),
+        global_volume_accumulator: Pubkey::default(),
+        user_volume_accumulator: get_account(19).unwrap_or_default(),
+        associated_user_volume_accumulator: get_account(20).unwrap_or_default(),
+        fee_config: get_account(21).unwrap_or_default(),
+        fee_program: get_account(22).unwrap_or_default(),
         is_buy: false,
         is_created_buy: false,
         timestamp: 0,
@@ -1128,16 +1266,30 @@ fn parse_sell_v2_instruction(
         cashback_fee_basis_points: 0,
         cashback: 0,
         is_cashback_coin: false,
-        associated_bonding_curve: get_account(11).unwrap_or_default(),
-        token_program: token_program_or_default(get_account(3).unwrap_or_default()),
-        creator_vault: get_account(16).unwrap_or_default(),
         account: None,
+        ..Default::default()
     }))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use solana_sdk::signature::Signature;
+
+    fn unique_accounts(n: usize) -> Vec<Pubkey> {
+        (0..n).map(|_| Pubkey::new_unique()).collect()
+    }
+
+    fn ix_accounts(n: usize) -> Vec<u8> {
+        (0..n).map(|i| i as u8).collect()
+    }
+
+    fn amount_data(first: u64, second: u64) -> Vec<u8> {
+        let mut data = Vec::with_capacity(16);
+        data.extend_from_slice(&first.to_le_bytes());
+        data.extend_from_slice(&second.to_le_bytes());
+        data
+    }
 
     #[test]
     fn unified_shred_outer_programs_cover_supported_protocols() {
@@ -1170,5 +1322,110 @@ mod tests {
             &ORCA_WHIRLPOOL_PROGRAM_ID,
             Some(&raydium_only)
         ));
+    }
+
+    #[test]
+    fn shred_pumpfun_trade_variants_are_specific_and_keep_exact_fields() {
+        let accounts = unique_accounts(27);
+        let legacy_buy_ix = ix_accounts(18);
+        let legacy_sell_ix = ix_accounts(17);
+        let v2_ix = ix_accounts(27);
+        let no_created = PumpMintSet::new();
+        let no_mayhem = PumpMintSet::new();
+
+        let buy = parse_buy_instruction(
+            &amount_data(100, 200),
+            &accounts,
+            &legacy_buy_ix,
+            Signature::default(),
+            1,
+            0,
+            9,
+            &no_created,
+            &no_mayhem,
+        )
+        .expect("buy");
+        match buy {
+            DexEvent::PumpFunBuy(t) => {
+                assert_eq!(t.bonding_curve_v2, accounts[16]);
+                assert_eq!(t.buyback_fee_recipient, accounts[17]);
+            }
+            other => panic!("expected buy variant, got {other:?}"),
+        }
+
+        let sell = parse_sell_instruction(
+            &amount_data(300, 400),
+            &accounts,
+            &legacy_sell_ix,
+            Signature::default(),
+            1,
+            0,
+            9,
+        )
+        .expect("sell");
+        match sell {
+            DexEvent::PumpFunSell(t) => {
+                assert_eq!(t.user_volume_accumulator, accounts[14]);
+                assert_eq!(t.bonding_curve_v2, accounts[15]);
+                assert_eq!(t.buyback_fee_recipient, accounts[16]);
+            }
+            other => panic!("expected sell variant, got {other:?}"),
+        }
+
+        let exact_quote = parse_buy_exact_quote_in_v2_instruction(
+            &amount_data(500, 600),
+            &accounts,
+            &v2_ix,
+            Signature::default(),
+            1,
+            0,
+            9,
+            &no_created,
+            &no_mayhem,
+        )
+        .expect("exact quote buy");
+
+        match exact_quote {
+            DexEvent::PumpFunBuyExactSolIn(t) => {
+                assert_eq!(t.ix_name, "buy_exact_quote_in_v2");
+                assert_eq!(t.spendable_quote_in, 500);
+                assert_eq!(t.min_tokens_out, 600);
+                assert_eq!(t.quote_mint, accounts[2]);
+                assert_eq!(t.associated_quote_user, accounts[15]);
+                assert_eq!(t.fee_program, accounts[23]);
+            }
+            other => panic!("expected exact buy variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn shred_pumpfun_legacy_trade_rejects_short_account_lists() {
+        let accounts = unique_accounts(16);
+        let no_created = PumpMintSet::new();
+        let no_mayhem = PumpMintSet::new();
+
+        assert!(parse_buy_instruction(
+            &amount_data(100, 200),
+            &accounts,
+            &ix_accounts(15),
+            Signature::default(),
+            1,
+            0,
+            9,
+            &no_created,
+            &no_mayhem,
+        )
+        .is_none());
+
+        assert!(parse_sell_instruction(
+            &amount_data(300, 400),
+            &accounts,
+            &ix_accounts(13),
+            Signature::default(),
+            1,
+            0,
+            9,
+        )
+        .is_none());
     }
 }

@@ -88,6 +88,87 @@ pub unsafe fn read_u32_unchecked(data: &[u8], offset: usize) -> u32 {
     u32::from_le(ptr.read_unaligned())
 }
 
+#[inline(always)]
+pub unsafe fn read_u16_unchecked(data: &[u8], offset: usize) -> u16 {
+    let ptr = data.as_ptr().add(offset) as *const u16;
+    u16::from_le(ptr.read_unaligned())
+}
+
+const MAX_TRADE_SHAREHOLDERS: usize = 64;
+
+#[inline(always)]
+unsafe fn read_optional_u64(data: &[u8], offset: &mut usize) -> u64 {
+    if *offset + 8 <= data.len() {
+        let v = read_u64_unchecked(data, *offset);
+        *offset += 8;
+        v
+    } else {
+        0
+    }
+}
+
+#[inline(always)]
+unsafe fn read_optional_pubkey(data: &[u8], offset: &mut usize) -> Pubkey {
+    if *offset + 32 <= data.len() {
+        let v = read_pubkey_unchecked(data, *offset);
+        *offset += 32;
+        v
+    } else {
+        Pubkey::default()
+    }
+}
+
+#[inline(always)]
+unsafe fn read_trade_shareholders(
+    data: &[u8],
+    offset: &mut usize,
+) -> Option<Vec<PumpFeesShareholder>> {
+    if *offset + 4 > data.len() {
+        return Some(Vec::new());
+    }
+    let n = read_u32_unchecked(data, *offset) as usize;
+    if n > MAX_TRADE_SHAREHOLDERS {
+        return None;
+    }
+    let bytes = 4usize.checked_add(n.checked_mul(34)?)?;
+    if *offset + bytes > data.len() {
+        return None;
+    }
+    *offset += 4;
+    let mut out = Vec::with_capacity(n);
+    for _ in 0..n {
+        let address = read_pubkey_unchecked(data, *offset);
+        *offset += 32;
+        let share_bps = read_u16_unchecked(data, *offset);
+        *offset += 2;
+        out.push(PumpFeesShareholder { address, share_bps });
+    }
+    Some(out)
+}
+
+#[inline(always)]
+pub(crate) unsafe fn read_trade_event_extensions(
+    data: &[u8],
+    offset: &mut usize,
+) -> Option<(u64, u64, Vec<PumpFeesShareholder>, Pubkey, u64, u64, u64)> {
+    let buyback_fee_basis_points = read_optional_u64(data, offset);
+    let buyback_fee = read_optional_u64(data, offset);
+    let shareholders = read_trade_shareholders(data, offset)?;
+    let quote_mint = read_optional_pubkey(data, offset);
+    let quote_amount = read_optional_u64(data, offset);
+    let virtual_quote_reserves = read_optional_u64(data, offset);
+    let real_quote_reserves = read_optional_u64(data, offset);
+    Some((
+        buyback_fee_basis_points,
+        buyback_fee,
+        shareholders,
+        quote_mint,
+        quote_amount,
+        virtual_quote_reserves,
+        real_quote_reserves,
+    ))
+}
+
 // --- log_decode ----------------------------------------------------
 
 static BASE64_FINDER: Lazy<memmem::Finder> = Lazy::new(|| memmem::Finder::new(b"Program data: "));
@@ -443,6 +524,16 @@ fn parse_trade_event_optimized(
             if offset + 8 <= data.len() { read_u64_unchecked(data, offset) } else { 0 };
         offset += 8;
         let cashback = if offset + 8 <= data.len() { read_u64_unchecked(data, offset) } else { 0 };
+        offset += 8;
+        let (
+            buyback_fee_basis_points,
+            buyback_fee,
+            shareholders,
+            quote_mint,
+            quote_amount,
+            virtual_quote_reserves,
+            real_quote_reserves,
+        ) = read_trade_event_extensions(data, &mut offset)?;
 
         let metadata = EventMetadata {
             signature,
@@ -481,15 +572,35 @@ fn parse_trade_event_optimized(
             mayhem_mode,
             cashback_fee_basis_points,
             cashback,
+            buyback_fee_basis_points,
+            buyback_fee,
+            shareholders,
+            quote_mint,
+            quote_amount,
+            virtual_quote_reserves,
+            real_quote_reserves,
             is_cashback_coin: cashback_fee_basis_points > 0,
             amount: 0,
             max_sol_cost: 0,
             min_sol_output: 0,
+            spendable_sol_in: 0,
+            spendable_quote_in: 0,
+            min_tokens_out: 0,
+            global: Pubkey::default(),
             bonding_curve: Pubkey::default(),
             associated_bonding_curve: Pubkey::default(),
+            associated_user: Pubkey::default(),
+            system_program: Pubkey::default(),
             creator_vault: Pubkey::default(),
+            event_authority: Pubkey::default(),
+            program: Pubkey::default(),
+            global_volume_accumulator: Pubkey::default(),
+            user_volume_accumulator: Pubkey::default(),
+            fee_config: Pubkey::default(),
+            fee_program: Pubkey::default(),
             token_program: Pubkey::default(),
             account: None,
+            ..Default::default()
         };
 
         // 根据 ix_name 返回不同的事件类型，支持用户过滤特定交易类型
@@ -742,6 +853,16 @@ pub fn parse_trade_from_data(
             if offset + 8 <= data.len() { read_u64_unchecked(data, offset) } else { 0 };
         offset += 8;
         let cashback = if offset + 8 <= data.len() { read_u64_unchecked(data, offset) } else { 0 };
+        offset += 8;
+        let (
+            buyback_fee_basis_points,
+            buyback_fee,
+            shareholders,
+            quote_mint,
+            quote_amount,
+            virtual_quote_reserves,
+            real_quote_reserves,
+        ) = read_trade_event_extensions(data, &mut offset)?;
 
         let trade_event = PumpFunTradeEvent {
             metadata,
@@ -771,15 +892,35 @@ pub fn parse_trade_from_data(
             mayhem_mode,
             cashback_fee_basis_points,
             cashback,
+            buyback_fee_basis_points,
+            buyback_fee,
+            shareholders,
+            quote_mint,
+            quote_amount,
+            virtual_quote_reserves,
+            real_quote_reserves,
             is_cashback_coin: cashback_fee_basis_points > 0,
             amount: 0,
             max_sol_cost: 0,
             min_sol_output: 0,
+            spendable_sol_in: 0,
+            spendable_quote_in: 0,
+            min_tokens_out: 0,
+            global: Pubkey::default(),
             bonding_curve: Pubkey::default(),
             associated_bonding_curve: Pubkey::default(),
+            associated_user: Pubkey::default(),
+            system_program: Pubkey::default(),
             creator_vault: Pubkey::default(),
+            event_authority: Pubkey::default(),
+            program: Pubkey::default(),
+            global_volume_accumulator: Pubkey::default(),
+            user_volume_accumulator: Pubkey::default(),
+            fee_config: Pubkey::default(),
+            fee_program: Pubkey::default(),
             token_program: Pubkey::default(),
             account: None,
+            ..Default::default()
         };
 
         // 根据 ix_name 返回不同的事件类型

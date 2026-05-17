@@ -67,8 +67,8 @@ pub fn merge_events(base: &mut DexEvent, inner: DexEvent) {
 
         // ========== PumpSwap 系列 ==========
         (PumpSwapTrade(b), PumpSwapTrade(i)) => merge_generic(b, i),
-        (PumpSwapBuy(b), PumpSwapBuy(i)) => merge_generic(b, i),
-        (PumpSwapSell(b), PumpSwapSell(i)) => merge_generic(b, i),
+        (PumpSwapBuy(b), PumpSwapBuy(i)) => merge_pumpswap_buy(b, i),
+        (PumpSwapSell(b), PumpSwapSell(i)) => merge_pumpswap_sell(b, i),
         (PumpSwapCreatePool(b), PumpSwapCreatePool(i)) => merge_generic(b, i),
         (PumpSwapLiquidityAdded(b), PumpSwapLiquidityAdded(i)) => merge_generic(b, i),
         (PumpSwapLiquidityRemoved(b), PumpSwapLiquidityRemoved(i)) => merge_generic(b, i),
@@ -217,10 +217,21 @@ fn merge_pumpfun_trade(base: &mut PumpFunTradeEvent, inner: PumpFunTradeEvent) {
         base.total_claimed_tokens = inner.total_claimed_tokens;
         base.current_sol_volume = inner.current_sol_volume;
         base.last_update_timestamp = inner.last_update_timestamp;
-        base.ix_name = inner.ix_name;
+        if !inner.ix_name.is_empty() {
+            base.ix_name = inner.ix_name;
+        }
         base.mayhem_mode |= inner.mayhem_mode;
-        base.cashback_fee_basis_points = inner.cashback_fee_basis_points;
-        base.cashback = inner.cashback;
+        put_u64_if_nonzero(&mut base.cashback_fee_basis_points, inner.cashback_fee_basis_points);
+        put_u64_if_nonzero(&mut base.cashback, inner.cashback);
+        put_u64_if_nonzero(&mut base.buyback_fee_basis_points, inner.buyback_fee_basis_points);
+        put_u64_if_nonzero(&mut base.buyback_fee, inner.buyback_fee);
+        if base.shareholders.is_empty() && !inner.shareholders.is_empty() {
+            base.shareholders = inner.shareholders;
+        }
+        put_pk_if_set(&mut base.quote_mint, inner.quote_mint);
+        put_u64_if_nonzero(&mut base.quote_amount, inner.quote_amount);
+        put_u64_if_nonzero(&mut base.virtual_quote_reserves, inner.virtual_quote_reserves);
+        put_u64_if_nonzero(&mut base.real_quote_reserves, inner.real_quote_reserves);
         base.is_cashback_coin |= inner.is_cashback_coin;
     } else {
         put_u64_if_nonzero(&mut base.fee, inner.fee);
@@ -236,6 +247,15 @@ fn merge_pumpfun_trade(base: &mut PumpFunTradeEvent, inner: PumpFunTradeEvent) {
         put_u64_if_nonzero(&mut base.current_sol_volume, inner.current_sol_volume);
         put_u64_if_nonzero(&mut base.cashback_fee_basis_points, inner.cashback_fee_basis_points);
         put_u64_if_nonzero(&mut base.cashback, inner.cashback);
+        put_u64_if_nonzero(&mut base.buyback_fee_basis_points, inner.buyback_fee_basis_points);
+        put_u64_if_nonzero(&mut base.buyback_fee, inner.buyback_fee);
+        if base.shareholders.is_empty() && !inner.shareholders.is_empty() {
+            base.shareholders = inner.shareholders;
+        }
+        put_pk_if_set(&mut base.quote_mint, inner.quote_mint);
+        put_u64_if_nonzero(&mut base.quote_amount, inner.quote_amount);
+        put_u64_if_nonzero(&mut base.virtual_quote_reserves, inner.virtual_quote_reserves);
+        put_u64_if_nonzero(&mut base.real_quote_reserves, inner.real_quote_reserves);
         put_i64_if_nonzero(&mut base.timestamp, inner.timestamp);
         put_i64_if_nonzero(&mut base.last_update_timestamp, inner.last_update_timestamp);
         if !inner.ix_name.is_empty() {
@@ -248,6 +268,42 @@ fn merge_pumpfun_trade(base: &mut PumpFunTradeEvent, inner: PumpFunTradeEvent) {
     put_u64_if_nonzero(&mut base.amount, inner.amount);
     put_u64_if_nonzero(&mut base.max_sol_cost, inner.max_sol_cost);
     put_u64_if_nonzero(&mut base.min_sol_output, inner.min_sol_output);
+    put_u64_if_nonzero(&mut base.spendable_sol_in, inner.spendable_sol_in);
+    put_u64_if_nonzero(&mut base.spendable_quote_in, inner.spendable_quote_in);
+    put_u64_if_nonzero(&mut base.min_tokens_out, inner.min_tokens_out);
+    put_pk_if_set(&mut base.global, inner.global);
+    put_pk_if_set(&mut base.bonding_curve, inner.bonding_curve);
+    put_pk_if_set(&mut base.bonding_curve_v2, inner.bonding_curve_v2);
+    put_pk_if_set(&mut base.associated_bonding_curve, inner.associated_bonding_curve);
+    put_pk_if_set(&mut base.associated_user, inner.associated_user);
+    put_pk_if_set(&mut base.system_program, inner.system_program);
+    put_pk_if_set(&mut base.token_program, inner.token_program);
+    put_pk_if_set(&mut base.quote_token_program, inner.quote_token_program);
+    put_pk_if_set(&mut base.associated_token_program, inner.associated_token_program);
+    put_pk_if_set(&mut base.creator_vault, inner.creator_vault);
+    put_pk_if_set(&mut base.associated_quote_fee_recipient, inner.associated_quote_fee_recipient);
+    put_pk_if_set(&mut base.buyback_fee_recipient, inner.buyback_fee_recipient);
+    put_pk_if_set(
+        &mut base.associated_quote_buyback_fee_recipient,
+        inner.associated_quote_buyback_fee_recipient,
+    );
+    put_pk_if_set(&mut base.associated_quote_bonding_curve, inner.associated_quote_bonding_curve);
+    put_pk_if_set(&mut base.associated_quote_user, inner.associated_quote_user);
+    put_pk_if_set(&mut base.associated_creator_vault, inner.associated_creator_vault);
+    put_pk_if_set(&mut base.sharing_config, inner.sharing_config);
+    put_pk_if_set(&mut base.event_authority, inner.event_authority);
+    put_pk_if_set(&mut base.program, inner.program);
+    put_pk_if_set(&mut base.global_volume_accumulator, inner.global_volume_accumulator);
+    put_pk_if_set(&mut base.user_volume_accumulator, inner.user_volume_accumulator);
+    put_pk_if_set(
+        &mut base.associated_user_volume_accumulator,
+        inner.associated_user_volume_accumulator,
+    );
+    put_pk_if_set(&mut base.fee_config, inner.fee_config);
+    put_pk_if_set(&mut base.fee_program, inner.fee_program);
+    if base.account.is_none() {
+        base.account = inner.account;
+    }
 
     base.is_created_buy |= inner.is_created_buy;
     // 保留 base 的账户上下文字段（bonding_curve, associated_bonding_curve 等）
@@ -285,6 +341,20 @@ fn merge_pumpfun_migrate(base: &mut PumpFunMigrateEvent, inner: PumpFunMigrateEv
     base.bonding_curve = inner.bonding_curve;
     base.timestamp = inner.timestamp;
     base.pool = inner.pool;
+}
+
+#[inline(always)]
+fn merge_pumpswap_buy(base: &mut PumpSwapBuyEvent, inner: PumpSwapBuyEvent) {
+    let ix = std::mem::take(base);
+    *base = inner;
+    merge_pumpswap_buy_log_preferred(base, ix);
+}
+
+#[inline(always)]
+fn merge_pumpswap_sell(base: &mut PumpSwapSellEvent, inner: PumpSwapSellEvent) {
+    let ix = std::mem::take(base);
+    *base = inner;
+    merge_pumpswap_sell_log_preferred(base, ix);
 }
 
 // ============================================================================
@@ -352,12 +422,36 @@ fn fill_str_if_empty(to: &mut String, from: &str) {
 /// 仅用 `ix` 补齐默认的账户类字段；`is_created_buy` 若仅 ix 侧为 true 则置位（创建首买标记）。
 #[inline]
 fn merge_pumpfun_trade_log_preferred(log: &mut PumpFunTradeEvent, ix: PumpFunTradeEvent) {
+    fill_pk(&mut log.global, ix.global);
     fill_pk(&mut log.bonding_curve, ix.bonding_curve);
+    fill_pk(&mut log.bonding_curve_v2, ix.bonding_curve_v2);
     fill_pk(&mut log.associated_bonding_curve, ix.associated_bonding_curve);
+    fill_pk(&mut log.associated_user, ix.associated_user);
+    fill_pk(&mut log.system_program, ix.system_program);
     fill_pk(&mut log.token_program, ix.token_program);
+    fill_pk(&mut log.quote_token_program, ix.quote_token_program);
+    fill_pk(&mut log.associated_token_program, ix.associated_token_program);
     fill_pk(&mut log.creator_vault, ix.creator_vault);
     fill_pk(&mut log.fee_recipient, ix.fee_recipient);
     fill_pk(&mut log.creator, ix.creator);
+    fill_pk(&mut log.quote_mint, ix.quote_mint);
+    fill_pk(&mut log.associated_quote_fee_recipient, ix.associated_quote_fee_recipient);
+    fill_pk(&mut log.buyback_fee_recipient, ix.buyback_fee_recipient);
+    fill_pk(
+        &mut log.associated_quote_buyback_fee_recipient,
+        ix.associated_quote_buyback_fee_recipient,
+    );
+    fill_pk(&mut log.associated_quote_bonding_curve, ix.associated_quote_bonding_curve);
+    fill_pk(&mut log.associated_quote_user, ix.associated_quote_user);
+    fill_pk(&mut log.associated_creator_vault, ix.associated_creator_vault);
+    fill_pk(&mut log.sharing_config, ix.sharing_config);
+    fill_pk(&mut log.event_authority, ix.event_authority);
+    fill_pk(&mut log.program, ix.program);
+    fill_pk(&mut log.global_volume_accumulator, ix.global_volume_accumulator);
+    fill_pk(&mut log.user_volume_accumulator, ix.user_volume_accumulator);
+    fill_pk(&mut log.associated_user_volume_accumulator, ix.associated_user_volume_accumulator);
+    fill_pk(&mut log.fee_config, ix.fee_config);
+    fill_pk(&mut log.fee_program, ix.fee_program);
     if log.account.is_none() {
         log.account = ix.account;
     }
@@ -367,6 +461,12 @@ fn merge_pumpfun_trade_log_preferred(log: &mut PumpFunTradeEvent, ix: PumpFunTra
     put_u64_if_nonzero(&mut log.amount, ix.amount);
     put_u64_if_nonzero(&mut log.max_sol_cost, ix.max_sol_cost);
     put_u64_if_nonzero(&mut log.min_sol_output, ix.min_sol_output);
+    put_u64_if_nonzero(&mut log.spendable_sol_in, ix.spendable_sol_in);
+    put_u64_if_nonzero(&mut log.spendable_quote_in, ix.spendable_quote_in);
+    put_u64_if_nonzero(&mut log.min_tokens_out, ix.min_tokens_out);
+    put_u64_if_nonzero(&mut log.quote_amount, ix.quote_amount);
+    put_u64_if_nonzero(&mut log.virtual_quote_reserves, ix.virtual_quote_reserves);
+    put_u64_if_nonzero(&mut log.real_quote_reserves, ix.real_quote_reserves);
     if !log.is_created_buy && ix.is_created_buy {
         log.is_created_buy = true;
     }
@@ -442,6 +542,9 @@ fn merge_pumpswap_buy_log_preferred(log: &mut PumpSwapBuyEvent, ix: PumpSwapBuyE
     fill_pk(&mut log.coin_creator_vault_authority, ix.coin_creator_vault_authority);
     fill_pk(&mut log.base_token_program, ix.base_token_program);
     fill_pk(&mut log.quote_token_program, ix.quote_token_program);
+    fill_pk(&mut log.pool_v2, ix.pool_v2);
+    fill_pk(&mut log.fee_recipient, ix.fee_recipient);
+    fill_pk(&mut log.fee_recipient_quote_token_account, ix.fee_recipient_quote_token_account);
     if log.ix_name.is_empty() && !ix.ix_name.is_empty() {
         log.ix_name = ix.ix_name;
     }
@@ -462,6 +565,9 @@ fn merge_pumpswap_sell_log_preferred(log: &mut PumpSwapSellEvent, ix: PumpSwapSe
     fill_pk(&mut log.coin_creator_vault_authority, ix.coin_creator_vault_authority);
     fill_pk(&mut log.base_token_program, ix.base_token_program);
     fill_pk(&mut log.quote_token_program, ix.quote_token_program);
+    fill_pk(&mut log.pool_v2, ix.pool_v2);
+    fill_pk(&mut log.fee_recipient, ix.fee_recipient);
+    fill_pk(&mut log.fee_recipient_quote_token_account, ix.fee_recipient_quote_token_account);
 }
 
 #[inline]
@@ -721,6 +827,52 @@ mod tests {
             // 账户上下文保留
             assert_ne!(trade.bonding_curve, Pubkey::default());
             assert_ne!(trade.associated_bonding_curve, Pubkey::default());
+        } else {
+            panic!("Expected PumpFunTrade event");
+        }
+    }
+
+    #[test]
+    fn merge_preserves_instruction_context_when_log_tail_is_absent() {
+        let metadata = EventMetadata {
+            signature: Signature::default(),
+            slot: 100,
+            tx_index: 1,
+            block_time_us: 1000,
+            grpc_recv_us: 2000,
+            recent_blockhash: None,
+        };
+        let quote_mint = Pubkey::new_unique();
+        let associated_quote_user = Pubkey::new_unique();
+
+        let mut base = DexEvent::PumpFunTrade(PumpFunTradeEvent {
+            metadata: metadata.clone(),
+            ix_name: "buy_exact_quote_in_v2".to_string(),
+            quote_mint,
+            spendable_quote_in: 1_000,
+            min_tokens_out: 2_000,
+            associated_quote_user,
+            ..Default::default()
+        });
+
+        let inner = DexEvent::PumpFunBuyExactSolIn(PumpFunTradeEvent {
+            metadata,
+            sol_amount: 1_000,
+            token_amount: 2_000,
+            is_buy: true,
+            ..Default::default()
+        });
+
+        merge_events(&mut base, inner);
+
+        if let DexEvent::PumpFunTrade(t) = base {
+            assert_eq!(t.sol_amount, 1_000);
+            assert_eq!(t.token_amount, 2_000);
+            assert_eq!(t.ix_name, "buy_exact_quote_in_v2");
+            assert_eq!(t.quote_mint, quote_mint);
+            assert_eq!(t.spendable_quote_in, 1_000);
+            assert_eq!(t.min_tokens_out, 2_000);
+            assert_eq!(t.associated_quote_user, associated_quote_user);
         } else {
             panic!("Expected PumpFunTrade event");
         }

@@ -124,6 +124,13 @@ pub struct PumpFunTradeEvent {
     pub cashback_fee_basis_points: u64,
     /// Cashback amount (PUMP_CASHBACK_README)
     pub cashback: u64,
+    pub buyback_fee_basis_points: u64,
+    pub buyback_fee: u64,
+    pub shareholders: Vec<PumpFeesShareholder>,
+    pub quote_mint: Pubkey,
+    pub quote_amount: u64,
+    pub virtual_quote_reserves: u64,
+    pub real_quote_reserves: u64,
     /// 是否返现代币（由 cashback_fee_basis_points > 0 推导，供 sol-trade-sdk 等构造 sell 指令用）
     #[borsh(skip)]
     pub is_cashback_coin: bool,
@@ -135,19 +142,64 @@ pub struct PumpFunTradeEvent {
     pub max_sol_cost: u64, // buy.args.max_sol_cost
     #[borsh(skip)]
     pub min_sol_output: u64, // sell.args.min_sol_output
+    #[borsh(skip)]
+    pub spendable_sol_in: u64, // buy_exact_sol_in.args.spendable_sol_in
+    #[borsh(skip)]
+    pub spendable_quote_in: u64, // buy_exact_quote_in_v2.args.spendable_quote_in
+    #[borsh(skip)]
+    pub min_tokens_out: u64, // buy_exact*.args.min_tokens_out
 
     // === 指令账户字段 (从指令账户填充，不在 Borsh 数据中) ===
-    // pub global: Pubkey,                  // 0
     #[borsh(skip)]
-    pub bonding_curve: Pubkey, // 3
+    pub global: Pubkey, // legacy 0 / v2 0
     #[borsh(skip)]
-    pub associated_bonding_curve: Pubkey, // 4
-    // pub associated_user: Pubkey,         // 5
+    pub bonding_curve: Pubkey, // legacy 3 / v2 10
     #[borsh(skip)]
-    pub token_program: Pubkey, // sell - 9 / buy - 8
+    pub bonding_curve_v2: Pubkey, // legacy sell cashback remaining_accounts[1]
     #[borsh(skip)]
-    pub creator_vault: Pubkey, // sell - 8 / buy - 9
-    /// 第 17 个指令账户 (index 16)，区块浏览器显示为 "Account"，部分 buy/sell 会传入
+    pub associated_bonding_curve: Pubkey, // legacy 4 / v2 associated_base_bonding_curve 11
+    #[borsh(skip)]
+    pub associated_user: Pubkey, // legacy 5 / v2 associated_base_user 14
+    #[borsh(skip)]
+    pub system_program: Pubkey, // legacy 7 / v2 buy 24, sell 23
+    #[borsh(skip)]
+    pub token_program: Pubkey, // legacy sell 9 / buy 8 / v2 base_token_program 3
+    #[borsh(skip)]
+    pub quote_token_program: Pubkey, // v2 4
+    #[borsh(skip)]
+    pub associated_token_program: Pubkey, // v2 5
+    #[borsh(skip)]
+    pub creator_vault: Pubkey, // legacy sell 8 / buy 9 / v2 16
+    #[borsh(skip)]
+    pub associated_quote_fee_recipient: Pubkey, // v2 7
+    #[borsh(skip)]
+    pub buyback_fee_recipient: Pubkey, // v2 8
+    #[borsh(skip)]
+    pub associated_quote_buyback_fee_recipient: Pubkey, // v2 9
+    #[borsh(skip)]
+    pub associated_quote_bonding_curve: Pubkey, // v2 12
+    #[borsh(skip)]
+    pub associated_quote_user: Pubkey, // v2 15
+    #[borsh(skip)]
+    pub associated_creator_vault: Pubkey, // v2 17
+    #[borsh(skip)]
+    pub sharing_config: Pubkey, // v2 18
+    #[borsh(skip)]
+    pub event_authority: Pubkey, // legacy buy 10 / sell 10 / v2 buy 25, sell 24
+    #[borsh(skip)]
+    pub program: Pubkey, // legacy buy 11 / sell 11 / v2 buy 26, sell 25
+    #[borsh(skip)]
+    pub global_volume_accumulator: Pubkey, // buy/exact buy legacy 12 / v2 buy 19
+    #[borsh(skip)]
+    pub user_volume_accumulator: Pubkey, // legacy buy/exact buy 13 / v2 buy 20, sell 19
+    #[borsh(skip)]
+    pub associated_user_volume_accumulator: Pubkey, // v2 buy 21 / sell 20
+    #[borsh(skip)]
+    pub fee_config: Pubkey, // legacy buy 14 / sell 12 / v2 buy 22, sell 21
+    #[borsh(skip)]
+    pub fee_program: Pubkey, // legacy buy 15 / sell 13 / v2 buy 23, sell 22
+    /// Legacy fallback alias for the last post-upgrade extra account. Prefer
+    /// `bonding_curve_v2` and `buyback_fee_recipient` for structured access.
     #[borsh(skip)]
     pub account: Option<Pubkey>,
 }
@@ -185,7 +237,7 @@ pub struct PumpFunMigrateEvent {
 // ---------- pump-fees IDL：`idls/pump_fees.json`（Program `pfeeUx...`）----------
 
 /// IDL `Shareholder`
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default, BorshDeserialize)]
 pub struct PumpFeesShareholder {
     pub address: Pubkey,
     pub share_bps: u16,
@@ -503,6 +555,12 @@ pub struct PumpSwapBuyEvent {
     pub base_token_program: Pubkey,
     #[borsh(skip)]
     pub quote_token_program: Pubkey,
+    #[borsh(skip)]
+    pub pool_v2: Pubkey,
+    #[borsh(skip)]
+    pub fee_recipient: Pubkey,
+    #[borsh(skip)]
+    pub fee_recipient_quote_token_account: Pubkey,
 }
 
 /// PumpSwap Sell Event
@@ -559,6 +617,12 @@ pub struct PumpSwapSellEvent {
     pub base_token_program: Pubkey,
     #[borsh(skip)]
     pub quote_token_program: Pubkey,
+    #[borsh(skip)]
+    pub pool_v2: Pubkey,
+    #[borsh(skip)]
+    pub fee_recipient: Pubkey,
+    #[borsh(skip)]
+    pub fee_recipient_quote_token_account: Pubkey,
 }
 
 /// PumpSwap Create Pool Event

@@ -9,39 +9,119 @@ pub type AccountGetter<'a> = dyn Fn(usize) -> Pubkey + 'a;
 /// 填充 PumpFun Trade 事件账户
 ///
 /// PumpFun Buy/Sell instruction account mapping (from pumpfun.json IDL):
-/// Buy 共 16 个固定账户 + 可选第 17 个:
+/// Buy 共 16 个 IDL 账户，升级后追加 `bonding_curve_v2` 与新 fee/buyback recipient:
 /// 0 global, 1 fee_recipient, 2 mint, 3 bonding_curve, 4 associated_bonding_curve, 5 associated_user, 6 user,
 /// 7 system_program, 8 token_program, 9 creator_vault, 10 event_authority, 11 program,
 /// 12 global_volume_accumulator, 13 user_volume_accumulator, 14 fee_config, 15 fee_program,
-/// 16 (可选) remaining_account / fee 相关，部分交易存在。
-/// Sell 共 14 个固定账户，部分版本也有 17 个账户时 16 同 buy。
+/// 16 bonding_curve_v2, 17 buyback_fee_recipient。
+/// Sell 共 14 个 IDL 账户；升级后非 cashback: 14 bonding_curve_v2, 15 buyback_fee_recipient；
+/// cashback: 14 user_volume_accumulator, 15 bonding_curve_v2, 16 buyback_fee_recipient。
 pub fn fill_trade_accounts(e: &mut PumpFunTradeEvent, get: &AccountGetter<'_>) {
-    // 指令账户 #1 = fee_recipient（IDL）；仅日志路径时常为 default，补全后可与 mayhem/普通池一致，供 sol-trade-sdk 校验。
-    if e.fee_recipient == Pubkey::default() {
-        let fr = get(1);
-        if fr != Pubkey::default() {
-            e.fee_recipient = fr;
+    let is_v2 = matches!(e.ix_name.as_str(), "buy_v2" | "sell_v2" | "buy_exact_quote_in_v2");
+    let is_sell = matches!(e.ix_name.as_str(), "sell" | "sell_v2") || !e.is_buy;
+
+    let fill_pk = |to: &mut Pubkey, idx: usize| {
+        if *to == Pubkey::default() {
+            let from = get(idx);
+            if from != Pubkey::default() {
+                *to = from;
+            }
         }
+    };
+
+    if is_v2 {
+        fill_pk(&mut e.global, 0);
+        fill_pk(&mut e.quote_mint, 2);
+        fill_pk(&mut e.fee_recipient, 6);
+        fill_pk(&mut e.bonding_curve, 10);
+        // v2 has explicit base/quote bonding curve accounts; no separate legacy bonding_curve_v2 remaining account.
+        fill_pk(&mut e.associated_bonding_curve, 11);
+        fill_pk(&mut e.associated_quote_bonding_curve, 12);
+        fill_pk(&mut e.associated_user, 14);
+        fill_pk(&mut e.associated_quote_user, 15);
+        fill_pk(&mut e.user, 13);
+        fill_pk(&mut e.system_program, if is_sell { 23 } else { 24 });
+        fill_pk(&mut e.token_program, 3);
+        fill_pk(&mut e.quote_token_program, 4);
+        fill_pk(&mut e.associated_token_program, 5);
+        fill_pk(&mut e.creator_vault, 16);
+        fill_pk(&mut e.associated_quote_fee_recipient, 7);
+        fill_pk(&mut e.buyback_fee_recipient, 8);
+        fill_pk(&mut e.associated_quote_buyback_fee_recipient, 9);
+        fill_pk(&mut e.associated_creator_vault, 17);
+        fill_pk(&mut e.sharing_config, 18);
+        fill_pk(&mut e.event_authority, if is_sell { 24 } else { 25 });
+        fill_pk(&mut e.program, if is_sell { 25 } else { 26 });
+        if !is_sell {
+            fill_pk(&mut e.global_volume_accumulator, 19);
+            fill_pk(&mut e.user_volume_accumulator, 20);
+            fill_pk(&mut e.associated_user_volume_accumulator, 21);
+            fill_pk(&mut e.fee_config, 22);
+            fill_pk(&mut e.fee_program, 23);
+        } else {
+            fill_pk(&mut e.user_volume_accumulator, 19);
+            fill_pk(&mut e.associated_user_volume_accumulator, 20);
+            fill_pk(&mut e.fee_config, 21);
+            fill_pk(&mut e.fee_program, 22);
+        }
+        return;
     }
-    if e.user == Pubkey::default() {
-        e.user = get(6);
-    }
-    if e.bonding_curve == Pubkey::default() {
-        e.bonding_curve = get(3);
-    }
-    if e.associated_bonding_curve == Pubkey::default() {
-        e.associated_bonding_curve = get(4);
-    }
-    if e.creator_vault == Pubkey::default() {
-        e.creator_vault = if e.is_buy { get(9) } else { get(8) };
-    }
-    if e.token_program == Pubkey::default() {
-        e.token_program = if e.is_buy { get(8) } else { get(9) };
-    }
-    // 第 17 个账户 (index 16)：区块浏览器显示为 "Account"，getter 越界时返回 default，故仅非 default 时写入
-    let a17 = get(16);
-    if a17 != Pubkey::default() {
-        e.account = Some(a17);
+
+    fill_pk(&mut e.global, 0);
+    // 指令账户 #1 = fee_recipient（IDL）；仅日志路径时常为 default，补全后可与 mayhem/普通池一致，供 sol-trade-sdk 校验。
+    fill_pk(&mut e.fee_recipient, 1);
+    fill_pk(&mut e.bonding_curve, 3);
+    fill_pk(&mut e.associated_bonding_curve, 4);
+    fill_pk(&mut e.associated_user, 5);
+    fill_pk(&mut e.user, 6);
+    fill_pk(&mut e.system_program, 7);
+    fill_pk(&mut e.creator_vault, if e.is_buy { 9 } else { 8 });
+    fill_pk(&mut e.token_program, if e.is_buy { 8 } else { 9 });
+    fill_pk(&mut e.event_authority, 10);
+    fill_pk(&mut e.program, 11);
+    if e.is_buy {
+        fill_pk(&mut e.global_volume_accumulator, 12);
+        fill_pk(&mut e.user_volume_accumulator, 13);
+        fill_pk(&mut e.fee_config, 14);
+        fill_pk(&mut e.fee_program, 15);
+        fill_pk(&mut e.bonding_curve_v2, 16);
+        fill_pk(&mut e.buyback_fee_recipient, 17);
+        let a18 = get(17);
+        if e.account.is_none() && a18 != Pubkey::default() {
+            e.account = Some(a18);
+        }
+    } else {
+        fill_pk(&mut e.fee_config, 12);
+        fill_pk(&mut e.fee_program, 13);
+        let a14 = get(14);
+        let a15 = get(15);
+        let a16 = get(16);
+        if a16 != Pubkey::default() {
+            fill_pk(&mut e.user_volume_accumulator, 14);
+            fill_pk(&mut e.bonding_curve_v2, 15);
+            fill_pk(&mut e.buyback_fee_recipient, 16);
+            if e.account.is_none() {
+                e.account = Some(a16);
+            }
+        } else if e.is_cashback_coin {
+            if a14 != Pubkey::default() {
+                fill_pk(&mut e.user_volume_accumulator, 14);
+            }
+            if a15 != Pubkey::default() {
+                fill_pk(&mut e.bonding_curve_v2, 15);
+            }
+        } else {
+            if a14 != Pubkey::default() {
+                fill_pk(&mut e.bonding_curve_v2, 14);
+            }
+            if a15 != Pubkey::default() {
+                fill_pk(&mut e.buyback_fee_recipient, 15);
+                if e.account.is_none() {
+                    e.account = Some(a15);
+                }
+            }
+        }
+        return;
     }
 }
 
@@ -140,27 +220,47 @@ pub fn fill_migrate_accounts(_e: &mut PumpFunMigrateEvent, _get: &AccountGetter<
 mod tests {
     use super::*;
 
-    /// 验证第 17 个账户 (account 字段) 在 gRPC/RPC 路径下会被正确填充：fill_trade_accounts 用 get(16) 写入 e.account
     #[test]
-    fn test_fill_trade_accounts_account_17() {
-        let account_17 = Pubkey::new_from_array([17u8; 32]);
+    fn fill_trade_accounts_sets_legacy_buy_upgrade_accounts() {
+        let bonding_curve_v2 = Pubkey::new_from_array([16u8; 32]);
+        let buyback_fee_recipient = Pubkey::new_from_array([17u8; 32]);
         let get = |i: usize| -> Pubkey {
-            if i == 16 {
-                account_17
-            } else {
-                Pubkey::default()
+            match i {
+                16 => bonding_curve_v2,
+                17 => buyback_fee_recipient,
+                _ => Pubkey::default(),
             }
         };
-        let getter: &AccountGetter = &get;
 
-        let mut e = PumpFunTradeEvent { account: None, ..Default::default() };
+        let mut e = PumpFunTradeEvent { is_buy: true, account: None, ..Default::default() };
 
-        fill_trade_accounts(&mut e, getter);
-        assert_eq!(
-            e.account,
-            Some(account_17),
-            "第 17 个账户 (account) 应被填充，gRPC/RPC 路径均走 fill_trade_accounts"
-        );
+        fill_trade_accounts(&mut e, &get);
+        assert_eq!(e.bonding_curve_v2, bonding_curve_v2);
+        assert_eq!(e.buyback_fee_recipient, buyback_fee_recipient);
+        assert_eq!(e.account, Some(buyback_fee_recipient));
+    }
+
+    #[test]
+    fn fill_trade_accounts_sets_cashback_sell_upgrade_accounts() {
+        let user_volume = Pubkey::new_from_array([14u8; 32]);
+        let bonding_curve_v2 = Pubkey::new_from_array([15u8; 32]);
+        let buyback_fee_recipient = Pubkey::new_from_array([16u8; 32]);
+        let get = |i: usize| -> Pubkey {
+            match i {
+                14 => user_volume,
+                15 => bonding_curve_v2,
+                16 => buyback_fee_recipient,
+                _ => Pubkey::default(),
+            }
+        };
+
+        let mut e = PumpFunTradeEvent { is_buy: false, account: None, ..Default::default() };
+
+        fill_trade_accounts(&mut e, &get);
+        assert_eq!(e.user_volume_accumulator, user_volume);
+        assert_eq!(e.bonding_curve_v2, bonding_curve_v2);
+        assert_eq!(e.buyback_fee_recipient, buyback_fee_recipient);
+        assert_eq!(e.account, Some(buyback_fee_recipient));
     }
 
     #[test]
